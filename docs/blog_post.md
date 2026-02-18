@@ -32,15 +32,15 @@ Client (CLI / curl / browser UI)
         │  POST /responses  (incident JSON)
         ▼
 ┌───────────────────────────────────────────────────────────────┐
-│                    Foundry Hosted Agent                        │
+│                    Foundry Hosted Agent                       │
 │                                                               │
 │  OncallCopilotAgent (ConcurrentBuilder orchestrator)          │
 │                                                               │
-│   ┌─────────────┐  ┌──────────────┐  ┌────────┐  ┌───────┐  │
-│   │ Triage      │  │ Summary      │  │ Comms  │  │ PIR   │  │
-│   │ Agent       │  │ Agent        │  │ Agent  │  │ Agent │  │
-│   └──────┬──────┘  └──────┬───────┘  └───┬────┘  └───┬───┘  │
-│          └────────────────┴──────────────┴────────────┘      │
+│   ┌─────────────┐  ┌──────────────┐  ┌────────┐  ┌───────┐    │
+│   │ Triage      │  │ Summary      │  │ Comms  │  │ PIR   │    │
+│   │ Agent       │  │ Agent        │  │ Agent  │  │ Agent │    │
+│   └──────┬──────┘  └──────┬───────┘  └───┬────┘  └───┬───┘    │
+│          └────────────────┴──────────────┴────────────┘       │
 │                         asyncio.gather()                      │
 │                              │                                │
 │                         Merge JSON fragments                  │
@@ -421,6 +421,14 @@ A few natural extensions:
 - **Ticket auto-creation**: add a fifth agent (post-resolution) that creates a Jira or Azure DevOps ticket from the PIR output.
 - **Human-in-the-loop**: surface the `missing_information` list back to the on-call engineer as a form before proceeding, so the agent can re-run with the gaps filled.
 - **Feedback loop**: track confidence vs actual root cause accuracy over time; use the delta to improve agent instructions.
+
+## Resoruces 
+
+Agent Framework https://learn.microsoft.com/agent-framework/
+
+Model Router https://learn.microsoft.com/azure/ai-foundry/openai/how-to/model-router?view=foundry&preserve-view=true
+
+Hosted Agents https://learn.microsoft.com/azure/ai-foundry/agents/concepts/hosted-agents?view=foundry
 
 ---
 
