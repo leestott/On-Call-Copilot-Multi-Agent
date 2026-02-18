@@ -51,11 +51,17 @@ flowchart TD
     style Merge fill:#dce9f5,stroke:#0078d4
 ```
 
-## Excalidraw 
+## Excalidraw Architecture Diag
 
 ![Architecture](./docs/On%20Call_docs_architecture.png)
 
 ---
+
+Agent Framework https://learn.microsoft.com/agent-framework/
+
+Model Router https://learn.microsoft.com/azure/ai-foundry/openai/how-to/model-router?view=foundry&preserve-view=true
+
+Hosted Agents https://learn.microsoft.com/azure/ai-foundry/agents/concepts/hosted-agents?view=foundry
 
 ## UI Screenshots
 
