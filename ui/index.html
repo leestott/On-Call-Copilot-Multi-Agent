@@ -1,0 +1,1479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>On-Call Copilot</title>
+<style>
+/* ═══════════════════════════════════════════════  RESET + BASE  ════ */
+:root {
+  --bg:      #0d1117;
+  --bg2:     #161b22;
+  --bg3:     #1c2333;
+  --bg4:     #21262d;
+  --border:  #30363d;
+  --text:    #c9d1d9;
+  --text2:   #8b949e;
+  --text3:   #6e7681;
+  --accent:  #58a6ff;
+  --green:   #3fb950;
+  --red:     #ff7b72;
+  --yellow:  #e3b341;
+  --purple:  #bc8cff;
+  --orange:  #f0883e;
+  --teal:    #39d353;
+  --r-triage: var(--red);
+  --r-summary: var(--accent);
+  --r-comms: var(--green);
+  --r-pir:   var(--purple);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+}
+code, pre, .mono { font-family: 'Consolas', 'Cascadia Code', 'Courier New', monospace; }
+a { color: var(--accent); text-decoration: none; }
+button { cursor: pointer; border: none; background: none; font-family: inherit; }
+select { font-family: inherit; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+/* ═══════════════════════════════════════════════  TOPBAR  ════════ */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 20px;
+  height: 52px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  z-index: 10;
+}
+.topbar-logo {
+  width: 32px; height: 32px;
+  background: linear-gradient(135deg, var(--accent), var(--purple));
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+.topbar-title {
+  font-size: 16px; font-weight: 700; color: var(--text);
+}
+.topbar-sub {
+  font-size: 12px; color: var(--text2);
+  margin-left: 4px;
+}
+.topbar-spacer { flex: 1; }
+.live-badge {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 12px;
+  border: 1px solid var(--green);
+  border-radius: 20px;
+  font-size: 11px; font-weight: 600; color: var(--green);
+  background: rgba(63,185,80,0.08);
+}
+.live-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green);
+  animation: blink 2s ease-in-out infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.cfg-pill {
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 11px; color: var(--text2);
+  background: var(--bg3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 300px;
+  cursor: default;
+}
+.cfg-pill.unconfigured { border-color: var(--yellow); color: var(--yellow); }
+.topbar-action {
+  padding: 7px 16px;
+  border-radius: 6px;
+  font-size: 12px; font-weight: 600;
+  color: var(--text2);
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  transition: all 0.15s;
+}
+.topbar-action:hover { border-color: var(--accent); color: var(--accent); background: rgba(88,166,255,0.06); }
+
+/* ═══════════════════════════════════════════════  LAYOUT  ════════ */
+.main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ═══════════════════════════════════════════════  LEFT PANEL  ═══ */
+.left-panel {
+  width: 440px;
+  min-width: 360px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.panel-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg2);
+  flex-shrink: 0;
+}
+.panel-tag {
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 1.5px;
+  color: var(--text2);
+}
+.panel-title {
+  font-size: 14px; font-weight: 600; color: var(--text);
+}
+
+/* Quick-load strip */
+.load-strip {
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+  flex-shrink: 0;
+}
+.load-strip-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px;
+  color: var(--text3); margin-bottom: 8px;
+}
+.load-buttons {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.load-btn {
+  padding: 4px 11px;
+  border-radius: 6px;
+  font-size: 12px; font-weight: 500;
+  border: 1px solid var(--border);
+  color: var(--text2);
+  background: var(--bg3);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.load-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(88,166,255,0.06); }
+.load-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(88,166,255,0.1); }
+.load-btn.sev1 { border-color: rgba(255,123,114,0.4); color: var(--red); background: rgba(255,123,114,0.06); }
+.load-btn.sev1:hover { border-color: var(--red); background: rgba(255,123,114,0.12); }
+.load-btn.sev2 { border-color: rgba(227,179,65,0.4); color: var(--yellow); background: rgba(227,179,65,0.06); }
+.load-btn.sev2:hover { border-color: var(--yellow); background: rgba(227,179,65,0.12); }
+.load-btn.sev3 { border-color: rgba(88,166,255,0.4); color: var(--accent); background: rgba(88,166,255,0.06); }
+.load-btn.sev3:hover { border-color: var(--accent); background: rgba(88,166,255,0.12); }
+.load-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.load-section-sep {
+  width: 1px; height: 24px; background: var(--border); margin: 0 2px;
+  align-self: center; flex-shrink: 0;
+}
+
+/* Incident preview strip */
+.incident-preview {
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+  flex-shrink: 0;
+  display: none;
+}
+.incident-preview.visible { display: flex; align-items: center; gap: 10px; }
+.sev-badge {
+  padding: 2px 9px;
+  border-radius: 12px;
+  font-size: 11px; font-weight: 700;
+  flex-shrink: 0;
+}
+.sev-SEV1 { background:rgba(255,123,114,0.15); border:1px solid var(--red); color:var(--red); }
+.sev-SEV2 { background:rgba(227,179,65,0.15); border:1px solid var(--yellow); color:var(--yellow); }
+.sev-SEV3 { background:rgba(88,166,255,0.15); border:1px solid var(--accent); color:var(--accent); }
+.sev-SEV4 { background:rgba(63,185,80,0.12); border:1px solid var(--green); color:var(--green); }
+.inc-title { font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inc-id { font-size: 11px; color: var(--text2); font-family: monospace; flex-shrink: 0; }
+
+/* JSON editor */
+.editor-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.editor-toolbar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 18px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--bg2);
+}
+.editor-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 1.5px; }
+.editor-spacer { flex: 1; }
+.btn-icon {
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--text2);
+  border: 1px solid transparent;
+  transition: all 0.15s;
+}
+.btn-icon:hover { border-color: var(--border); color: var(--text); background: var(--bg3); }
+#json-editor {
+  flex: 1;
+  background: var(--bg);
+  color: #a5d6ff;
+  border: none;
+  outline: none;
+  resize: none;
+  padding: 14px 18px;
+  font-family: 'Consolas', 'Cascadia Code', 'Courier New', monospace;
+  font-size: 12.5px;
+  line-height: 1.65;
+  tab-size: 2;
+  caret-color: var(--accent);
+}
+#json-editor::placeholder { color: var(--text3); }
+#json-editor.error { border-left: 3px solid var(--red); }
+
+/* Run button */
+.run-bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--bg2);
+  flex-shrink: 0;
+}
+#run-btn {
+  flex: 1;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px; font-weight: 700;
+  color: white;
+  background: linear-gradient(135deg, var(--accent) 0%, #4c8ef5 100%);
+  border: none;
+  transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+#run-btn:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(88,166,255,0.25); }
+#run-btn:active:not(:disabled) { transform: translateY(0); }
+#run-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; filter: none; }
+#run-btn .spinner {
+  width: 16px; height: 16px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: none;
+}
+#run-btn.loading .spinner { display: block; }
+#run-btn.loading .btn-label { opacity: 0.7; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.json-status {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+.json-status.ok { color: var(--green); background: rgba(63,185,80,0.1); border: 1px solid rgba(63,185,80,0.3); }
+.json-status.bad { color: var(--red); background: rgba(255,123,114,0.1); border: 1px solid rgba(255,123,114,0.3); }
+
+/* ═══════════════════════════════════════════════  RIGHT PANEL  ════ */
+.right-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.output-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg2);
+  flex-shrink: 0;
+}
+.output-status-bar {
+  margin-left: auto;
+  display: flex; align-items: center; gap: 8px;
+}
+.stat-chip {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px; font-weight: 600;
+  border: 1px solid var(--border);
+  color: var(--text2);
+  background: var(--bg3);
+}
+.stat-chip.ok { border-color: var(--green); color: var(--green); background: rgba(63,185,80,0.08); }
+.stat-chip.err { border-color: var(--red); color: var(--red); background: rgba(255,123,114,0.08); }
+
+.output-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 1px;
+  background: var(--border);
+  overflow: hidden;
+}
+.agent-panel {
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.agent-panel-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.agent-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.agent-name { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; }
+.agent-desc { font-size: 11px; color: var(--text2); margin-left: 2px; }
+.agent-panel-header .agent-timing {
+  margin-left: auto;
+  font-size: 11px; color: var(--text2);
+  font-family: monospace;
+}
+.agent-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+}
+
+/* ── EMPTY STATE ── */
+.empty-state {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text3);
+  gap: 8px;
+  text-align: center;
+}
+.empty-icon { font-size: 28px; opacity: 0.5; }
+.empty-label { font-size: 12px; font-weight: 600; }
+.empty-hint { font-size: 11px; }
+
+/* ── SKELETON LOADING ── */
+.skeleton {
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--bg3) 25%, var(--bg4) 50%, var(--bg3) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+@keyframes shimmer { to { background-position: -200% 0; } }
+.skel-line { height: 12px; margin-bottom: 8px; }
+.skel-line.short { width: 40%; }
+.skel-line.medium { width: 70%; }
+.skel-line.long { width: 90%; }
+.skel-block { height: 80px; width: 100%; margin-bottom: 10px; }
+
+/* ── TRIAGE PANEL ── */
+.hyp-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.hyp-card:last-child { margin-bottom: 0; }
+.hyp-hypo { font-size: 13px; color: var(--text); line-height: 1.5; margin-bottom: 8px; }
+.hyp-confidence-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.hyp-conf-label { font-size: 11px; font-weight: 700; white-space: nowrap; }
+.conf-bar { flex: 1; height: 4px; border-radius: 2px; background: var(--bg3); }
+.conf-fill { height: 100%; border-radius: 2px; }
+.hyp-evidence { font-size: 11px; color: var(--text2); }
+.hyp-evidence-title { text-transform: uppercase; letter-spacing: 1px; font-weight: 600; margin-bottom: 4px; color: var(--text3); font-size: 10px; }
+.hyp-evidence ul { list-style: disc; padding-left: 16px; }
+.hyp-evidence li { padding: 2px 0; }
+
+.section-title {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;
+  color: var(--text3); margin-bottom: 8px; margin-top: 14px;
+  display: flex; align-items: center; gap: 6px;
+}
+.section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.section-title:first-child { margin-top: 0; }
+
+.action-item {
+  display: flex; gap: 10px; padding: 8px 12px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 6px; margin-bottom: 6px; align-items: flex-start;
+}
+.action-item:last-child { margin-bottom: 0; }
+.action-num {
+  width: 20px; height: 20px; border-radius: 50%;
+  font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-top: 1px;
+}
+.action-body { flex: 1; }
+.action-text { font-size: 12px; color: var(--text); line-height: 1.5; }
+.action-meta { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+.action-owner { font-size: 10px; color: var(--text2); }
+.priority-badge {
+  font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px;
+}
+.p0 { background:rgba(255,123,114,0.15); color:var(--red); }
+.p1 { background:rgba(227,179,65,0.12); color:var(--yellow); }
+.p2 { background:rgba(88,166,255,0.1); color:var(--accent); }
+.p3 { background:rgba(139,148,158,0.1); color:var(--text2); }
+
+/* ── SUMMARY PANEL ── */
+.narrative-box {
+  padding: 14px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  font-size: 13px; line-height: 1.7; color: var(--text);
+  margin-bottom: 12px;
+}
+.status-display {
+  display: flex; gap: 12px;
+}
+.status-box {
+  flex: 1;
+  padding: 16px;
+  border-radius: 8px;
+  text-align: center;
+  border: 2px solid;
+}
+.status-box.ongoing { border-color: var(--red); background: rgba(255,123,114,0.05); }
+.status-box.resolved { border-color: var(--green); background: rgba(63,185,80,0.05); }
+.status-box .status-icon { font-size: 28px; display: block; margin-bottom: 6px; }
+.status-box .status-text { font-size: 16px; font-weight: 800; margin-bottom: 4px; }
+.status-box.ongoing .status-text { color: var(--red); }
+.status-box.resolved .status-text { color: var(--green); }
+.status-box .status-detail { font-size: 11px; color: var(--text2); line-height: 1.4; }
+.metrics-row {
+  display: flex; gap: 1px;
+  background: var(--border);
+  border-radius: 8px; overflow: hidden;
+  margin-top: 12px;
+}
+.metric-box {
+  flex: 1; padding: 10px;
+  background: var(--bg2);
+  text-align: center;
+}
+.metric-val { font-size: 20px; font-weight: 800; font-family: monospace; line-height: 1.1; }
+.metric-lbl { font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+
+/* ── COMMS PANEL ── */
+.slack-card {
+  background: #1a1d21;
+  border: 1px solid #36393f;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+.slack-header { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+.slack-icon { font-size: 16px; }
+.slack-workspace { font-size: 11px; font-weight: 700; color: #72767d; text-transform: uppercase; letter-spacing: 0.5px; }
+.slack-channel { font-size: 12px; color: #7289da; margin-left: auto; font-weight: 600; }
+.slack-body { font-size: 13px; color: #dcddde; line-height: 1.6; word-break: break-word; }
+.slack-body strong { color: white; }
+
+.stakeholder-card {
+  padding: 14px 16px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+}
+.stakeholder-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px;
+  color: var(--text2); margin-bottom: 8px; font-weight: 600;
+}
+.stakeholder-body { font-size: 13px; color: var(--text); line-height: 1.7; word-break: break-word; }
+
+/* ── PIR PANEL ── */
+.timeline-list { padding: 0 4px; margin-bottom: 2px; }
+.tl-item {
+  display: flex; gap: 14px; padding-bottom: 14px; position: relative;
+}
+.tl-item:not(:last-child)::after {
+  content: ''; position: absolute;
+  left: 65px; top: 18px; bottom: 0; width: 2px;
+  background: var(--border);
+}
+.tl-time {
+  font-family: monospace; font-size: 11px; color: var(--accent);
+  width: 58px; padding-top: 2px; flex-shrink: 0; text-align: right;
+}
+.tl-time.ongoing { color: var(--yellow); }
+.tl-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent); margin-top: 4px; flex-shrink: 0;
+  border: 2px solid var(--bg); z-index: 1;
+}
+.tl-dot.ongoing { background: var(--yellow); }
+.tl-event { font-size: 12px; color: var(--text); flex: 1; padding-top: 2px; line-height: 1.5; }
+
+.impact-box {
+  padding: 12px 14px;
+  background: rgba(255,123,114,0.05);
+  border: 1px solid rgba(255,123,114,0.2);
+  border-radius: 8px;
+  font-size: 13px; color: var(--text); line-height: 1.6;
+  word-break: break-word;
+}
+
+.prevention-item {
+  display: flex; gap: 10px; padding: 8px 12px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 6px; margin-bottom: 6px;
+}
+.prevention-item:last-child { margin-bottom: 0; }
+.prevention-num {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: rgba(188,140,255,0.15); border: 1px solid var(--purple);
+  color: var(--purple); font-size: 10px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-top: 1px;
+}
+.prevention-text { font-size: 12px; color: var(--text); line-height: 1.5; flex: 1; }
+
+/* ── ERROR STATE ── */
+.error-banner {
+  margin: 16px;
+  padding: 12px 16px;
+  background: rgba(255,123,114,0.08);
+  border: 1px solid rgba(255,123,114,0.3);
+  border-radius: 8px;
+  font-size: 13px; color: var(--red); line-height: 1.5;
+}
+.error-banner strong { display: block; margin-bottom: 4px; }
+.error-banner code { font-family: monospace; background: rgba(255,123,114,0.1); padding: 2px 5px; border-radius: 3px; font-size: 11px; }
+
+/* ── MISSING INFO / RUNBOOK ── */
+.info-card {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; margin-bottom: 6px;
+}
+.info-q { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+.info-why { font-size: 11px; color: var(--text2); line-height: 1.5; }
+.runbook-item {
+  font-size: 12px; padding: 5px 0;
+  border-bottom: 1px solid rgba(48,54,61,0.5); color: var(--text);
+}
+.runbook-item:last-child { border-bottom: none; }
+.runbook-gap { color: var(--yellow); }
+
+/* ── SUCCESS SPLASH (shown when all 4 complete) ── */
+.success-flash {
+  position: fixed; top: 60px; right: 20px;
+  padding: 10px 16px;
+  background: rgba(63,185,80,0.12);
+  border: 1px solid var(--green);
+  border-radius: 8px;
+  font-size: 13px; color: var(--green); font-weight: 600;
+  display: flex; align-items: center; gap: 8px;
+  z-index: 100;
+  animation: fadeUp 0.3s ease-out;
+  box-shadow: 0 4px 20px rgba(63,185,80,0.15);
+}
+@keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+.success-flash.fading { animation: fadeOut 0.5s ease forwards; }
+@keyframes fadeOut { to { opacity:0; transform: translateY(-8px); } }
+
+/* ═══════════════════ tab strip inside triage ═══════════════════ */
+.tabs {
+  display: flex; border-bottom: 1px solid var(--border); margin-bottom: 12px;
+}
+.tab-btn {
+  padding: 7px 12px; font-size: 11px; font-weight: 600; color: var(--text2);
+  border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s;
+  text-transform: uppercase; letter-spacing: 1px;
+}
+.tab-btn.active { color: var(--red); border-bottom-color: var(--red); }
+.tab-btn:hover:not(.active) { color: var(--text); }
+.tab-btn.summary-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+/* ════════════════════ CONFIG MODAL ════════════════════ */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 200;
+  display: none; align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  width: 520px;
+  max-width: 90vw;
+}
+.modal-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+.modal-field { margin-bottom: 14px; }
+.modal-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text2); margin-bottom: 6px; display: block; }
+.modal-input {
+  width: 100%; padding: 8px 12px;
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-family: monospace; font-size: 12px; outline: none;
+  transition: border-color 0.15s;
+}
+.modal-input:focus { border-color: var(--accent); }
+.modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.btn-secondary {
+  padding: 7px 16px; border-radius: 6px; font-size: 13px; font-weight: 600;
+  color: var(--text2); border: 1px solid var(--border); background: var(--bg3);
+  transition: all 0.15s;
+}
+.btn-secondary:hover { border-color: var(--text2); color: var(--text); }
+.btn-primary {
+  padding: 7px 16px; border-radius: 6px; font-size: 13px; font-weight: 600;
+  color: white; background: var(--accent); border: none;
+  transition: all 0.15s;
+}
+.btn-primary:hover { filter: brightness(1.1); }
+
+/* ════════════════════ RESPONSIVE ════════════════════ */
+@media (max-width: 900px) {
+  .main { flex-direction: column; overflow: auto; }
+  .left-panel { width: 100%; min-width: unset; border-right: none; border-bottom: 1px solid var(--border); height: auto; }
+  .right-panel { overflow: visible; }
+  .output-grid { grid-template-columns: 1fr; grid-template-rows: repeat(4, auto); overflow: visible; }
+  html, body { overflow: auto; }
+}
+</style>
+</head>
+<body>
+
+<!-- ════════ TOPBAR ════════ -->
+<header class="topbar">
+  <div class="topbar-logo">🚨</div>
+  <span class="topbar-title">On-Call Copilot</span>
+  <span class="topbar-sub">— Multi-Agent Incident Response</span>
+  <div class="topbar-spacer"></div>
+  <div id="live-badge" class="live-badge" style="display:none;">
+    <div class="live-dot"></div>
+    <span id="agent-label">oncall-copilot:latest</span>
+  </div>
+  <div id="cfg-pill" class="cfg-pill unconfigured" title="Click to configure">⚠ endpoint not set</div>
+  <button class="topbar-action" onclick="openConfig()">⚙ Configure</button>
+</header>
+
+<!-- ════════ MAIN LAYOUT ════════ -->
+<div class="main">
+
+  <!-- ── LEFT PANEL: INCIDENT INPUT ── -->
+  <div class="left-panel">
+    <div class="panel-header">
+      <div class="panel-tag">Input</div>
+      <div class="panel-title">Incident Payload</div>
+    </div>
+
+    <div class="load-strip">
+      <div class="load-strip-label">Quick Load</div>
+      <div id="load-buttons" class="load-buttons">
+        <span style="font-size:11px;color:var(--text3);">Loading presets…</span>
+      </div>
+    </div>
+
+    <div id="incident-preview" class="incident-preview">
+      <span id="prev-sev" class="sev-badge sev-SEV3">SEV3</span>
+      <span id="prev-id" class="inc-id">INC-…</span>
+      <span id="prev-title" class="inc-title">–</span>
+    </div>
+
+    <div class="editor-wrap">
+      <div class="editor-toolbar">
+        <span class="editor-label">JSON</span>
+        <div class="editor-spacer"></div>
+        <button class="btn-icon" title="Format JSON" onclick="formatJSON()">✦</button>
+        <button class="btn-icon" title="Clear" onclick="clearEditor()">✕</button>
+        <span id="json-status" class="json-status ok">valid JSON</span>
+      </div>
+      <textarea id="json-editor"
+        placeholder="Paste incident JSON here, or use Quick Load above…"
+        spellcheck="false"
+        autocomplete="off"
+      ></textarea>
+    </div>
+
+    <div class="run-bar">
+      <button id="run-btn" onclick="runAnalysis()">
+        <div class="spinner"></div>
+        <span class="btn-label">▶ Run Analysis</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── RIGHT PANEL: AGENT OUTPUTS ── -->
+  <div class="right-panel">
+    <div class="output-header">
+      <span class="panel-tag">Outputs</span>
+      <span class="panel-title">Agent Responses</span>
+      <div class="output-status-bar" id="output-status-bar" style="display:none;">
+        <div id="http-chip" class="stat-chip ok">HTTP 200</div>
+        <div id="elapsed-chip" class="stat-chip">⏱ –</div>
+        <div id="agent-chip" class="stat-chip">🤖 –</div>
+      </div>
+    </div>
+    <div class="output-grid">
+      <!-- TRIAGE -->
+      <div class="agent-panel" id="panel-triage">
+        <div class="agent-panel-header" style="border-top:2px solid var(--red);">
+          <div class="agent-dot" style="background:var(--red);"></div>
+          <span class="agent-name" style="color:var(--red);">Triage</span>
+          <span class="agent-desc">Root causes · Actions · Gaps</span>
+          <span class="agent-timing" id="timing-triage"></span>
+        </div>
+        <div class="agent-body" id="body-triage">
+          <div class="empty-state">
+            <div class="empty-icon">🔍</div>
+            <div class="empty-label">Triage Agent</div>
+            <div class="empty-hint">Root causes, actions, missing info</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUMMARY -->
+      <div class="agent-panel" id="panel-summary">
+        <div class="agent-panel-header" style="border-top:2px solid var(--accent);">
+          <div class="agent-dot" style="background:var(--accent);"></div>
+          <span class="agent-name" style="color:var(--accent);">Summary</span>
+          <span class="agent-desc">What happened · Status</span>
+          <span class="agent-timing" id="timing-summary"></span>
+        </div>
+        <div class="agent-body" id="body-summary">
+          <div class="empty-state">
+            <div class="empty-icon">📋</div>
+            <div class="empty-label">Summary Agent</div>
+            <div class="empty-hint">Narrative and current status</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- COMMS -->
+      <div class="agent-panel" id="panel-comms">
+        <div class="agent-panel-header" style="border-top:2px solid var(--green);">
+          <div class="agent-dot" style="background:var(--green);"></div>
+          <span class="agent-name" style="color:var(--green);">Comms</span>
+          <span class="agent-desc">Slack update · Stakeholder</span>
+          <span class="agent-timing" id="timing-comms"></span>
+        </div>
+        <div class="agent-body" id="body-comms">
+          <div class="empty-state">
+            <div class="empty-icon">📢</div>
+            <div class="empty-label">Comms Agent</div>
+            <div class="empty-hint">Slack update and stakeholder brief</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PIR -->
+      <div class="agent-panel" id="panel-pir">
+        <div class="agent-panel-header" style="border-top:2px solid var(--purple);">
+          <div class="agent-dot" style="background:var(--purple);"></div>
+          <span class="agent-name" style="color:var(--purple);">PIR</span>
+          <span class="agent-desc">Timeline · Impact · Prevention</span>
+          <span class="agent-timing" id="timing-pir"></span>
+        </div>
+        <div class="agent-body" id="body-pir">
+          <div class="empty-state">
+            <div class="empty-icon">📄</div>
+            <div class="empty-label">Post-Incident Report Agent</div>
+            <div class="empty-hint">Timeline, customer impact, prevention</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ CONFIG MODAL ════════ -->
+<div id="config-modal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-title">⚙ Configure On-Call Copilot</div>
+    <div class="modal-field">
+      <label class="modal-label" for="cfg-endpoint">Azure AI Project Endpoint</label>
+      <input class="modal-input" id="cfg-endpoint" type="text"
+        placeholder="https://<account>.services.ai.azure.com/api/projects/<project>">
+    </div>
+    <div class="modal-field">
+      <label class="modal-label" for="cfg-agent">Agent Name</label>
+      <input class="modal-input" id="cfg-agent" type="text" value="oncall-copilot">
+    </div>
+    <div class="modal-field">
+      <label class="modal-label" for="cfg-version">Agent Version (leave blank for latest)</label>
+      <input class="modal-input" id="cfg-version" type="text" placeholder="latest">
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeConfig()">Cancel</button>
+      <button class="btn-primary" onclick="saveConfig()">Save & Reload</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════  STATE  ═══════════════════════════════════
+const state = {
+  incidents: [],
+  activeFile: null,
+  loading: false,
+  result: null,
+  config: { endpoint: '', agentName: 'oncall-copilot', agentVersion: '' },
+};
+
+// ═══════════════════════════════════════  INIT  ════════════════════════════════════
+async function init() {
+  await loadConfig();
+  await loadIncidents();
+  setupEditor();
+}
+
+async function loadConfig() {
+  try {
+    const r = await fetch('/api/config');
+    const d = await r.json();
+    state.config = {
+      endpoint: d.endpoint,
+      agentName: d.agent_name,
+      agentVersion: d.agent_version === 'latest' ? '' : d.agent_version,
+    };
+    updateConfigUI(d);
+  } catch(e) {
+    console.warn('Could not load config', e);
+  }
+}
+
+function updateConfigUI(cfg) {
+  const pill = document.getElementById('cfg-pill');
+  const badge = document.getElementById('live-badge');
+  const agentLabel = document.getElementById('agent-label');
+
+  if (cfg.configured) {
+    const host = cfg.endpoint.replace(/^https?:\/\//, '').split('/')[0];
+    pill.textContent = `⬡ ${host}`;
+    pill.classList.remove('unconfigured');
+    badge.style.display = 'flex';
+    agentLabel.textContent = `${cfg.agent_name}:${cfg.agent_version}`;
+  } else {
+    pill.textContent = '⚠ endpoint not set';
+    pill.classList.add('unconfigured');
+    badge.style.display = 'none';
+  }
+}
+
+async function loadIncidents() {
+  try {
+    const r = await fetch('/api/incidents');
+    const d = await r.json();
+    state.incidents = d.incidents || [];
+    renderLoadButtons();
+  } catch(e) {
+    document.getElementById('load-buttons').innerHTML =
+      '<span style="font-size:11px;color:var(--red);">Failed to load presets</span>';
+  }
+}
+
+function renderLoadButtons() {
+  const demos     = state.incidents.filter(i => i.type === 'demo');
+  const scenarios = state.incidents.filter(i => i.type === 'scenario');
+
+  const SEV_CLASS = { SEV1:'sev1', SEV2:'sev2', SEV3:'sev3', SEV4:'sev3' };
+  const html = [
+    ...demos.map(i => `
+      <button class="load-btn ${SEV_CLASS[i.severity]||''}"
+        onclick="loadIncident('${i.type}','${i.file}')"
+        id="btn-${i.file}"
+        title="${i.label}"
+      >${shortLabel(i.label, i.type)}</button>`),
+    `<div class="load-section-sep"></div>`,
+    ...scenarios.map(i => `
+      <button class="load-btn ${SEV_CLASS[i.severity]||''}"
+        onclick="loadIncident('${i.type}','${i.file}')"
+        id="btn-${i.file}"
+        title="${i.label}"
+      >${shortLabel(i.label, i.type)}</button>`),
+  ];
+  document.getElementById('load-buttons').innerHTML = html.join('');
+}
+
+function shortLabel(label, type) {
+  // e.g. "Demo 1 — API Gateway 5xx (SEV3)"  → "Demo 1"
+  //      "Scenario 1 — Redis Cluster Down"   → "S1"
+  const m = label.match(/^(Demo|Scenario)\s+(\d+)/i);
+  if (!m) return label.slice(0, 12);
+  return type === 'demo' ? `Demo ${m[2]}` : `S${m[2]}`;
+}
+
+async function loadIncident(type, file) {
+  if (state.loading) return;
+  // mark active button
+  document.querySelectorAll('.load-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById(`btn-${file}`);
+  if (btn) btn.classList.add('active');
+
+  try {
+    const r = await fetch(`/api/load?type=${type}&file=${encodeURIComponent(file)}`);
+    const d = await r.json();
+    if (d.error) { showEditorError(d.error); return; }
+
+    document.getElementById('json-editor').value = d.content;
+    state.activeFile = { type, file };
+    validateJSON(d.content);
+    updatePreview(d.meta);
+  } catch(e) {
+    showEditorError(e.message);
+  }
+}
+
+function updatePreview(meta) {
+  if (!meta) { document.getElementById('incident-preview').classList.remove('visible'); return; }
+  document.getElementById('prev-sev').textContent = meta.severity || '?';
+  document.getElementById('prev-sev').className = `sev-badge sev-${meta.severity || 'SEV3'}`;
+  document.getElementById('prev-id').textContent = meta.incident_id || '';
+  document.getElementById('prev-title').textContent = meta.title || '';
+  document.getElementById('incident-preview').classList.add('visible');
+}
+
+// ═══════════════════════════════════════  EDITOR  ══════════════════════════════════
+function setupEditor() {
+  const ed = document.getElementById('json-editor');
+  ed.addEventListener('input', () => {
+    validateJSON(ed.value);
+    // Update preview if valid JSON
+    try {
+      const meta = JSON.parse(ed.value);
+      updatePreview(meta);
+    } catch {}
+  });
+  ed.addEventListener('keydown', e => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const start = ed.selectionStart, end = ed.selectionEnd;
+      ed.value = ed.value.substring(0, start) + '  ' + ed.value.substring(end);
+      ed.selectionStart = ed.selectionEnd = start + 2;
+    }
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      runAnalysis();
+    }
+  });
+}
+
+function validateJSON(text) {
+  const status = document.getElementById('json-status');
+  const ed = document.getElementById('json-editor');
+  if (!text.trim()) {
+    status.textContent = 'empty';
+    status.className = 'json-status';
+    ed.classList.remove('error');
+    return false;
+  }
+  try {
+    JSON.parse(text);
+    status.textContent = '✓ valid JSON';
+    status.className = 'json-status ok';
+    ed.classList.remove('error');
+    return true;
+  } catch(e) {
+    const msg = e.message.replace('JSON.parse: ', '').slice(0, 30);
+    status.textContent = `✗ ${msg}`;
+    status.className = 'json-status bad';
+    ed.classList.add('error');
+    return false;
+  }
+}
+
+function formatJSON() {
+  const ed = document.getElementById('json-editor');
+  try {
+    ed.value = JSON.stringify(JSON.parse(ed.value), null, 2);
+    validateJSON(ed.value);
+  } catch {}
+}
+
+function clearEditor() {
+  document.getElementById('json-editor').value = '';
+  validateJSON('');
+  document.getElementById('incident-preview').classList.remove('visible');
+  document.querySelectorAll('.load-btn').forEach(b => b.classList.remove('active'));
+  state.activeFile = null;
+}
+
+function showEditorError(msg) {
+  const ed = document.getElementById('json-editor');
+  ed.value = `// ERROR: ${msg}`;
+  ed.classList.add('error');
+}
+
+// ═══════════════════════════════════════  INVOKE  ══════════════════════════════════
+async function runAnalysis() {
+  if (state.loading) return;
+  const ed = document.getElementById('json-editor');
+  const content = ed.value.trim();
+  if (!content) { ed.focus(); return; }
+
+  setLoading(true);
+  showSkeletons();
+  document.getElementById('output-status-bar').style.display = 'none';
+
+  try {
+    const r = await fetch('/api/invoke', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    });
+    const d = await r.json();
+
+    if (d.error) {
+      showError(d.error);
+    } else {
+      state.result = d;
+      renderResult(d);
+      showSuccessFlash(d.elapsed_seconds);
+    }
+  } catch(e) {
+    showError('Network error: ' + e.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
+function setLoading(on) {
+  state.loading = on;
+  const btn = document.getElementById('run-btn');
+  btn.disabled = on;
+  btn.classList.toggle('loading', on);
+  btn.querySelector('.btn-label').textContent = on ? 'Invoking agents…' : '▶ Run Analysis';
+  document.querySelectorAll('.load-btn').forEach(b => b.disabled = on);
+}
+
+function showSkeletons() {
+  ['triage','summary','comms','pir'].forEach(name => {
+    const body = document.getElementById(`body-${name}`);
+    body.innerHTML = `
+      <div class="skel-line long skeleton"></div>
+      <div class="skel-line medium skeleton"></div>
+      <div class="skel-block skeleton"></div>
+      <div class="skel-line short skeleton"></div>
+      <div class="skel-line long skeleton"></div>
+      <div class="skel-block skeleton"></div>`;
+    document.getElementById(`timing-${name}`).textContent = '';
+  });
+}
+
+function showError(msg) {
+  const errorHtml = `
+    <div class="error-banner">
+      <strong>⚠ Error</strong>
+      ${escHtml(msg)}
+    </div>`;
+  ['triage','summary','comms','pir'].forEach(n => {
+    document.getElementById(`body-${n}`).innerHTML = n === 'triage' ? errorHtml : `
+      <div class="empty-state"><div class="empty-icon">⚠</div><div class="empty-hint">See triage panel for error</div></div>`;
+  });
+}
+
+// ═══════════════════════════════════════  RENDER  ══════════════════════════════════
+function renderResult(d) {
+  const o = d.output || {};
+  const t = d.elapsed_seconds;
+
+  // Status bar
+  const bar = document.getElementById('output-status-bar');
+  bar.style.display = 'flex';
+  const httpChip = document.getElementById('http-chip');
+  const ok = d.http_status >= 200 && d.http_status < 300;
+  httpChip.textContent = `HTTP ${d.http_status} · ${d.agent_status || 'completed'}`;
+  httpChip.className = `stat-chip ${ok ? 'ok' : 'err'}`;
+  document.getElementById('elapsed-chip').textContent = `⏱ ${t}s`;
+  document.getElementById('agent-chip').textContent = `🤖 ${d.agent}`;
+
+  // Render each panel
+  renderTriage(o, t);
+  renderSummary(o, t);
+  renderComms(o, t);
+  renderPIR(o, t);
+}
+
+// ── TRIAGE ──────────────────────────────────────────────────────────────────
+function renderTriage(o, t) {
+  const body = document.getElementById('body-triage');
+  document.getElementById('timing-triage').textContent = t ? `${t}s` : '';
+
+  const rootCauses   = o.suspected_root_causes || [];
+  const actions      = o.immediate_actions || [];
+  const missing      = o.missing_information || [];
+  const runbook      = o.runbook_alignment || null;
+
+  if (!rootCauses.length && !actions.length) {
+    body.innerHTML = emptyHtml('🔍', 'No triage output', 'Agent may not have returned structured data');
+    return;
+  }
+
+  // Tabs if we have multiple sections
+  let html = `
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab(event,'triage','hyp')">Root Causes</button>
+      ${actions.length ? `<button class="tab-btn" onclick="switchTab(event,'triage','actions')">Actions (${actions.length})</button>` : ''}
+      ${missing.length ? `<button class="tab-btn" onclick="switchTab(event,'triage','missing')">Missing Info (${missing.length})</button>` : ''}
+      ${runbook ? `<button class="tab-btn" onclick="switchTab(event,'triage','runbook')">Runbook</button>` : ''}
+    </div>`;
+
+  // Hypotheses tab
+  html += `<div id="triage-tab-hyp" class="tab-pane active">`;
+  if (rootCauses.length) {
+    rootCauses.forEach((rc, i) => {
+      const conf = typeof rc.confidence === 'number' ? rc.confidence : 0;
+      const pct = Math.round(conf * 100);
+      const color = conf > 0.6 ? 'var(--red)' : conf > 0.35 ? 'var(--yellow)' : 'var(--accent)';
+      const evidence = Array.isArray(rc.evidence) ? rc.evidence : [];
+      html += `
+        <div class="hyp-card">
+          <div class="hyp-hypo">${escHtml(rc.hypothesis || '')}</div>
+          <div class="hyp-confidence-row">
+            <span class="hyp-conf-label" style="color:${color}">Confidence: ${pct}%</span>
+            <div class="conf-bar"><div class="conf-fill" style="width:${pct}%;background:${color};"></div></div>
+          </div>
+          ${evidence.length ? `
+            <div class="hyp-evidence">
+              <div class="hyp-evidence-title">Evidence</div>
+              <ul>${evidence.map(e => `<li>${escHtml(String(e))}</li>`).join('')}</ul>
+            </div>` : ''}
+        </div>`;
+    });
+  } else {
+    html += `<div class="empty-state"><div class="empty-hint">No hypotheses returned</div></div>`;
+  }
+  html += `</div>`;
+
+  // Actions tab
+  if (actions.length) {
+    html += `<div id="triage-tab-actions" class="tab-pane">`;
+    actions.forEach((a, i) => {
+      const step  = a.step || (typeof a === 'string' ? a : JSON.stringify(a));
+      const owner = a.owner_role || a.owner || '';
+      const prio  = a.priority || '';
+      html += `
+        <div class="action-item">
+          <div class="action-num" style="background:rgba(255,123,114,0.15);border:1px solid var(--red);color:var(--red);">${i+1}</div>
+          <div class="action-body">
+            <div class="action-text">${escHtml(step)}</div>
+            <div class="action-meta">
+              ${owner ? `<span class="action-owner">→ ${escHtml(owner)}</span>` : ''}
+              ${prio ? `<span class="priority-badge ${prio.toLowerCase()}">${prio}</span>` : ''}
+            </div>
+          </div>
+        </div>`;
+    });
+    html += `</div>`;
+  }
+
+  // Missing info tab
+  if (missing.length) {
+    html += `<div id="triage-tab-missing" class="tab-pane">`;
+    missing.forEach(m => {
+      html += `
+        <div class="info-card">
+          <div class="info-q">❓ ${escHtml(m.question || String(m))}</div>
+          ${m.why_it_matters ? `<div class="info-why">${escHtml(m.why_it_matters)}</div>` : ''}
+        </div>`;
+    });
+    html += `</div>`;
+  }
+
+  // Runbook tab
+  if (runbook) {
+    html += `<div id="triage-tab-runbook" class="tab-pane">`;
+    const matched = Array.isArray(runbook.matched_steps) ? runbook.matched_steps : [];
+    const gaps    = Array.isArray(runbook.gaps) ? runbook.gaps : [];
+    if (matched.length) {
+      html += `<div class="section-title">Matched Steps</div>`;
+      matched.forEach(s => { html += `<div class="runbook-item">✓ ${escHtml(s)}</div>`; });
+    }
+    if (gaps.length) {
+      html += `<div class="section-title">Gaps</div>`;
+      gaps.forEach(s => { html += `<div class="runbook-item runbook-gap">⚠ ${escHtml(s)}</div>`; });
+    }
+    html += `</div>`;
+  }
+
+  body.innerHTML = html;
+}
+
+// ── SUMMARY ──────────────────────────────────────────────────────────────────
+function renderSummary(o, t) {
+  const body = document.getElementById('body-summary');
+  document.getElementById('timing-summary').textContent = t ? `${t}s` : '';
+
+  const s = o.summary || {};
+  const whatHappened  = s.what_happened || '';
+  const currentStatus = s.current_status || '';
+
+  if (!whatHappened && !currentStatus) {
+    body.innerHTML = emptyHtml('📋', 'No summary output');
+    return;
+  }
+
+  const isOngoing = /ongoing|active|open/i.test(currentStatus);
+  const statusIcon = isOngoing ? '🔴' : '🟢';
+  const statusClass = isOngoing ? 'ongoing' : 'resolved';
+  const statusShort = isOngoing ? 'ONGOING' : 'RESOLVED';
+
+  // Try to extract some quick metrics from the original incident (parse from editor)
+  let metrics = [];
+  try {
+    const inc = JSON.parse(document.getElementById('json-editor').value);
+    if (inc.metrics) {
+      metrics = inc.metrics.slice(0, 3).map(m => ({
+        name: m.name.replace(/_/g,' ').replace(/pct$/i,'%'),
+        val: extractVal(m.values_summary),
+      }));
+    }
+  } catch {}
+
+  let html = '';
+  if (whatHappened) {
+    html += `<div class="narrative-box">${escHtml(whatHappened)}</div>`;
+  }
+  html += `
+    <div class="status-display">
+      <div class="status-box ${statusClass}">
+        <span class="status-icon">${statusIcon}</span>
+        <div class="status-text">${statusShort}</div>
+        <div class="status-detail">${escHtml(currentStatus.replace(/^ongoing\s*[-–—]?\s*/i, '').replace(/^resolved\s*[-–—]?\s*/i, ''))}</div>
+      </div>
+    </div>`;
+
+  if (metrics.length) {
+    html += `<div class="metrics-row">`;
+    metrics.forEach(m => {
+      html += `
+        <div class="metric-box">
+          <div class="metric-val" style="color:var(--accent)">${escHtml(m.val)}</div>
+          <div class="metric-lbl">${escHtml(m.name)}</div>
+        </div>`;
+    });
+    html += `</div>`;
+  }
+
+  body.innerHTML = html;
+}
+
+function extractVal(summary) {
+  if (!summary) return '–';
+  // e.g. "Jumped from 0.2% to 8.3% at 03:42Z" → "8.3%"
+  // "Dropped from 1,200 to 0 at 06:30Z" → "0"
+  const m = summary.match(/to\s+([0-9,.]+\s*%?)/i);
+  if (m) return m[1].trim();
+  const m2 = summary.match(/([0-9,.]+\s*(?:ms|%|GB|s|rpm)?)/i);
+  if (m2) return m2[1];
+  return summary.slice(0, 10);
+}
+
+// ── COMMS ──────────────────────────────────────────────────────────────────
+function renderComms(o, t) {
+  const body = document.getElementById('body-comms');
+  document.getElementById('timing-comms').textContent = t ? `${t}s` : '';
+
+  const comms = o.comms || {};
+  const slack       = comms.slack_update || '';
+  const stakeholder = comms.stakeholder_update || '';
+
+  if (!slack && !stakeholder) {
+    body.innerHTML = emptyHtml('📢', 'No comms output');
+    return;
+  }
+
+  let html = '';
+
+  if (slack) {
+    // Render slack-ish formatting
+    const rendered = slack
+      .replace(/\*(.*?)\*/g, '<strong>$1</strong>')
+      .replace(/:warning:/g, '⚠️')
+      .replace(/:fire:/g, '🔥')
+      .replace(/:large_red_circle:/g, '🔴')
+      .replace(/:white_check_mark:/g, '✅')
+      .replace(/:rotating_light:/g, '🚨')
+      .replace(/:[a-z_]+:/g, '');
+
+    html += `
+      <div class="section-title">Slack</div>
+      <div class="slack-card">
+        <div class="slack-header">
+          <span class="slack-icon">💬</span>
+          <span class="slack-workspace">SRE Workspace</span>
+          <span class="slack-channel">#incidents</span>
+        </div>
+        <div class="slack-body">${rendered}</div>
+      </div>`;
+  }
+
+  if (stakeholder) {
+    html += `
+      <div class="section-title">Stakeholder</div>
+      <div class="stakeholder-card">
+        <div class="stakeholder-label">External Communications</div>
+        <div class="stakeholder-body">${escHtml(stakeholder)}</div>
+      </div>`;
+  }
+
+  body.innerHTML = html;
+}
+
+// ── PIR ──────────────────────────────────────────────────────────────────
+function renderPIR(o, t) {
+  const body = document.getElementById('body-pir');
+  document.getElementById('timing-pir').textContent = t ? `${t}s` : '';
+
+  const pir = o.post_incident_report || {};
+  const timeline   = Array.isArray(pir.timeline) ? pir.timeline : [];
+  const impact     = pir.customer_impact || '';
+  const prevention = Array.isArray(pir.prevention_actions) ? pir.prevention_actions : [];
+
+  if (!timeline.length && !impact && !prevention.length) {
+    body.innerHTML = emptyHtml('📄', 'No PIR output');
+    return;
+  }
+
+  let html = '';
+
+  if (timeline.length) {
+    html += `<div class="section-title">Timeline</div><div class="timeline-list">`;
+    timeline.forEach(ev => {
+      const ongoing = /ongoing/i.test(ev.time || '');
+      html += `
+        <div class="tl-item">
+          <div class="tl-time ${ongoing ? 'ongoing' : ''}">${escHtml((ev.time||'').replace(/Z$/,'').replace('T',' ').split(' ').pop() || ev.time || '')}</div>
+          <div class="tl-dot ${ongoing ? 'ongoing' : ''}"></div>
+          <div class="tl-event">${escHtml(ev.event || '')}</div>
+        </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (impact) {
+    html += `<div class="section-title">Customer Impact</div><div class="impact-box">${escHtml(impact)}</div>`;
+  }
+
+  if (prevention.length) {
+    html += `<div class="section-title">Prevention Actions</div>`;
+    prevention.forEach((a, i) => {
+      const text = typeof a === 'string' ? a : (a.step || a.action || JSON.stringify(a));
+      html += `
+        <div class="prevention-item">
+          <div class="prevention-num">${i+1}</div>
+          <div class="prevention-text">${escHtml(text)}</div>
+        </div>`;
+    });
+  }
+
+  body.innerHTML = html;
+}
+
+// ═══════════════════════════════════════  HELPERS  ═════════════════════════════════
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function emptyHtml(icon, label, hint = '') {
+  return `
+    <div class="empty-state">
+      <div class="empty-icon">${icon}</div>
+      <div class="empty-label">${escHtml(label)}</div>
+      ${hint ? `<div class="empty-hint">${escHtml(hint)}</div>` : ''}
+    </div>`;
+}
+
+function switchTab(evt, panelId, tabId) {
+  const panel = document.getElementById(`body-${panelId}`);
+  panel.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  panel.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  evt.currentTarget.classList.add('active');
+  const pane = document.getElementById(`${panelId}-tab-${tabId}`);
+  if (pane) pane.classList.add('active');
+}
+
+function showSuccessFlash(elapsed) {
+  const el = document.createElement('div');
+  el.className = 'success-flash';
+  el.innerHTML = `✓ All agents responded <span style="color:var(--text2);font-weight:400;margin-left:6px;">in ${elapsed}s</span>`;
+  document.body.appendChild(el);
+  setTimeout(() => {
+    el.classList.add('fading');
+    setTimeout(() => el.remove(), 500);
+  }, 3000);
+}
+
+// ═══════════════════════════════════════  CONFIG MODAL  ═══════════════════════════
+function openConfig() {
+  document.getElementById('cfg-endpoint').value = state.config.endpoint || '';
+  document.getElementById('cfg-agent').value    = state.config.agentName || 'oncall-copilot';
+  document.getElementById('cfg-version').value  = state.config.agentVersion || '';
+  document.getElementById('config-modal').classList.add('open');
+}
+
+function closeConfig() {
+  document.getElementById('config-modal').classList.remove('open');
+}
+
+async function saveConfig() {
+  const ep  = document.getElementById('cfg-endpoint').value.trim();
+  const ag  = document.getElementById('cfg-agent').value.trim() || 'oncall-copilot';
+  const ver = document.getElementById('cfg-version').value.trim();
+
+  // Persist in sessionStorage for local override (server reads from env)
+  sessionStorage.setItem('OCC_ENDPOINT',      ep);
+  sessionStorage.setItem('OCC_AGENT_NAME',    ag);
+  sessionStorage.setItem('OCC_AGENT_VERSION', ver);
+
+  // Show toast and close
+  closeConfig();
+  const pill = document.getElementById('cfg-pill');
+  if (ep) {
+    const host = ep.replace(/^https?:\/\//, '').split('/')[0];
+    pill.textContent = `⬡ ${host}`;
+    pill.classList.remove('unconfigured');
+    document.getElementById('live-badge').style.display = 'flex';
+    document.getElementById('agent-label').textContent = `${ag}:${ver || 'latest'}`;
+    state.config = { endpoint: ep, agentName: ag, agentVersion: ver };
+  } else {
+    pill.textContent = '⚠ endpoint not set';
+    pill.classList.add('unconfigured');
+    document.getElementById('live-badge').style.display = 'none';
+  }
+}
+
+// Close modal on backdrop click
+document.getElementById('config-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeConfig();
+});
+
+// cfg-pill opens config
+document.getElementById('cfg-pill').addEventListener('click', openConfig);
+
+// ═══════════════════════════════════════  BOOT  ════════════════════════════════════
+init();
+</script>
+</body>
+</html>

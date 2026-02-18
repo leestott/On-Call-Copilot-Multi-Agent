@@ -2,7 +2,9 @@
 
 A developer-ready sample demonstrating **Microsoft Agent Framework** with **Foundry Hosted Agents** and **Model Router**. Four specialist agents run **concurrently** to ingest incident signals (alerts, logs, metrics, runbook excerpts) and return structured triage plus a post-incident report draft, all as validated JSON.
 
----
+![On-Call Copilot UI — results overview](./docs/screenshots/ui_04_results_overview.png)
+
+> **Live demo video:** [docs/demo_ui.mp4](./docs/demo_ui.mp4)
 
 ## Architecture
 
@@ -52,6 +54,59 @@ flowchart TD
 ## Excalidraw 
 
 ![Architecture](./docs/On%20Call_docs_architecture.png)
+
+---
+
+## UI Screenshots
+
+The project includes a local browser UI (`ui/`) for interactive incident triage. Start it with:
+
+```powershell
+$env:AZURE_AI_PROJECT_ENDPOINT = "https://<account>.services.ai.azure.com/api/projects/<project>"
+$env:AGENT_NAME = "oncall-copilot"
+.\.venv-1\Scripts\python.exe ui\server.py
+# Opens at http://localhost:7860
+```
+
+### Empty state — incident input panel with quick-load presets
+
+![Empty state](./docs/screenshots/ui_01_empty_state.png)
+
+### Quick-load presets — click any button to populate the JSON editor
+
+![Quick load](./docs/screenshots/ui_02_quick_load.png)
+
+### Incident loaded — editable JSON with severity badge and incident preview
+
+![Incident loaded](./docs/screenshots/ui_03_incident_loaded.png)
+
+### Full results — all four agent panels populated after a live invocation
+
+![Results overview](./docs/screenshots/ui_04_results_overview.png)
+
+### Triage panel — root causes with confidence bars and evidence
+
+![Triage panel](./docs/screenshots/ui_05_triage.png)
+
+### Triage panel — immediate actions tab with priority badges
+
+![Triage actions](./docs/screenshots/ui_09_triage_actions.png)
+
+### Summary panel — narrative and ONGOING / RESOLVED status
+
+![Summary panel](./docs/screenshots/ui_06_summary.png)
+
+### Comms panel — Slack card and stakeholder update
+
+![Comms panel](./docs/screenshots/ui_07_comms.png)
+
+### Post-Incident Report — timeline dots and prevention actions
+
+![PIR panel](./docs/screenshots/ui_08_pir.png)
+
+![PIR prevention actions](./docs/screenshots/ui_10_pir_prevention.png)
+
+---
 
 ### Multi-Agent Design
 
