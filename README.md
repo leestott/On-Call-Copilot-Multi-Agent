@@ -258,6 +258,7 @@ curl -X POST http://localhost:8088/responses \
 - Docker Desktop (for containerized testing)
 - A Microsoft Foundry project with Model Router deployed (for live mode)
 - `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_CHAT_DEPLOYMENT_NAME` env vars set (for live mode)
+- VSCode + Foundry Extension
 
 ### Run: Multi-Agent Mode (Agent Framework, requires Azure credentials)
 
@@ -473,6 +474,28 @@ python scripts/deploy_sdk.py --delete
 ---
 
 ## Demo Script
+
+Using the Foundry Extension for VSCode and the intergrated playground 
+
+Install the Microsoft Foundry Extension 
+Open VS Code. 
+Go to the Extensions view (Ctrl+Shift+X / Cmd+Shift+X). 
+Search for "Microsoft Foundry". 
+Click Install. 
+
+The extension icon should appear in the Activity Bar (left sidebar). 
+
+Set Your Default Foundry Project 
+
+Open the Command Palette (Ctrl+Shift+P / Cmd+Shift+P). 
+
+Run: `Microsoft Foundry: Set Default Project`. 
+
+Sign in to your Azure account if prompted. 
+
+Select your subscription, resource group, and Foundry project. 
+
+![VScodeFoundry Extension](./docs/screenshots/ui_foundryext_playground.png)
 
 ### Demo 1: Simple Alert (Quick Triage)
 
