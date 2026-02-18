@@ -1,0 +1,107 @@
+{
+  "_incident_id": "INC-2026-0401",
+  "summary": {
+    "what_happened": "Redis cache cluster became fully unresponsive at 06:30Z. Sentinel attempted automatic failover to replica-2 but failed because all nodes were unreachable. The session service lost its cache backend, circuit breaker opened, and 94% of session API requests began returning 503 errors. Memory utilization was near maxmemory limit (7.98GB/8GB) immediately before the outage.",
+    "current_status": "ONGOING – Redis cluster is DOWN, session service is in degraded mode returning 503s. No healthy Redis nodes available."
+  },
+  "suspected_root_causes": [
+    {
+      "hypothesis": "Redis memory pressure caused OOM-triggered eviction failure, leading to all nodes becoming unresponsive",
+      "evidence": [
+        "redis_memory_used_bytes at 7.98GB of 8GB maxmemory at 06:28Z – 99.75% utilization",
+        "All Redis nodes became unreachable simultaneously, suggesting shared resource exhaustion",
+        "Sentinel failover failed because replica was also affected"
+      ],
+      "confidence": 0.75
+    },
+    {
+      "hypothesis": "Underlying infrastructure failure (VM/pod crash) affecting all Redis nodes",
+      "evidence": [
+        "Sentinel reports ALL nodes unreachable, not just master",
+        "Failover to replica-2 also failed – suggests infrastructure-level issue"
+      ],
+      "confidence": 0.5
+    }
+  ],
+  "immediate_actions": [
+    {
+      "step": "Check underlying VM/pod status for all Redis nodes: kubectl get pods -n redis -o wide",
+      "owner_role": "oncall-eng",
+      "priority": "P0"
+    },
+    {
+      "step": "If pods exist but unresponsive, restart Redis pods one at a time starting with a replica",
+      "owner_role": "oncall-eng",
+      "priority": "P0"
+    },
+    {
+      "step": "Check Redis maxmemory-policy config – if 'noeviction', switch to 'allkeys-lru' to allow eviction",
+      "owner_role": "oncall-eng",
+      "priority": "P0"
+    },
+    {
+      "step": "Flush volatile keys if memory is the root cause: redis-cli FLUSHDB ASYNC on non-critical keyspaces",
+      "owner_role": "dba",
+      "priority": "P1"
+    },
+    {
+      "step": "Increase maxmemory to 12GB if infrastructure supports it",
+      "owner_role": "infra-eng",
+      "priority": "P1"
+    }
+  ],
+  "missing_information": [
+    {
+      "question": "What is the Redis maxmemory-policy setting (noeviction vs allkeys-lru)?",
+      "why_it_matters": "If set to noeviction, writes fail when memory is full, which can cascade to all nodes if replication backlog fills up"
+    },
+    {
+      "question": "Are the underlying VMs/pods for Redis nodes still running or did they crash?",
+      "why_it_matters": "Distinguishes between Redis-level memory issue vs infrastructure-level failure, which changes the remediation path"
+    },
+    {
+      "question": "What changed in traffic or data volume in the last 24 hours to drive memory to 99.75%?",
+      "why_it_matters": "Identifies whether this is organic growth or a sudden data spike that needs separate addressing"
+    }
+  ],
+  "runbook_alignment": {
+    "matched_steps": [
+      "Step 1: Check Redis Sentinel status",
+      "Step 3: Check underlying VM/pod health",
+      "Step 4: Flush volatile keys or increase maxmemory"
+    ],
+    "gaps": [
+      "No step for checking maxmemory-policy configuration",
+      "No step for gradual pod restart sequence",
+      "No step for enabling degraded session fallback mode in the application"
+    ]
+  },
+  "comms": {
+    "slack_update": ":rotating_light: **INC-2026-0401 | SEV2 | Redis Cluster Down** – Session service returning 503s at 94% error rate. Redis cluster fully unreachable since 06:30Z. Investigating memory pressure + node health. ETA for next update: 15 min.",
+    "stakeholder_update": "Active SEV2 incident: Session service degraded due to Redis cache cluster outage. Users may experience login and session-related errors. Engineering is actively investigating – suspected memory pressure on the cache layer. Estimated time to resolution: 20-40 minutes depending on root cause."
+  },
+  "post_incident_report": {
+    "timeline": [
+      {"time": "06:28Z", "event": "Redis memory utilization reached 99.75% (7.98GB/8GB)"},
+      {"time": "06:29Z", "event": "Redis master node stopped responding to PING"},
+      {"time": "06:30Z", "event": "Sentinel triggered failover – promoted replica-2"},
+      {"time": "06:30Z", "event": "Failover FAILED – replica-2 also unreachable"},
+      {"time": "06:30Z", "event": "Alert: RedisCluster-Unreachable fired"},
+      {"time": "06:31Z", "event": "Session service circuit breaker opened, 94% 503 error rate"},
+      {"time": "ONGOING", "event": "Investigation in progress"}
+    ],
+    "customer_impact": "Users unable to maintain sessions – login failures, session timeouts, and API 503 errors affecting all authenticated operations. 94% failure rate on session API.",
+    "prevention_actions": [
+      "Add Redis memory utilization alert at 80% threshold as early warning",
+      "Review maxmemory-policy and switch to allkeys-lru for graceful degradation",
+      "Implement session service fallback to database-backed sessions when Redis unavailable",
+      "Add capacity planning alert for Redis memory growth trend"
+    ]
+  },
+  "telemetry": {
+    "correlation_id": "PLACEHOLDER",
+    "model_router_deployment": "model-router",
+    "selected_model_if_available": "mock-model-router",
+    "tokens_if_available": {"prompt_tokens": 500, "completion_tokens": 800}
+  }
+}

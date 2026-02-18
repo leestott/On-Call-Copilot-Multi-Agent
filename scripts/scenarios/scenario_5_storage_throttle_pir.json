@@ -1,0 +1,99 @@
+{
+  "incident_id": "INC-2026-0405",
+  "title": "Resolved: Storage account throttling caused image upload failures – Post-Incident Review",
+  "severity": "SEV2",
+  "timeframe": {
+    "start": "2026-02-16T18:00:00Z",
+    "end": "2026-02-16T20:45:00Z"
+  },
+  "alerts": [
+    {
+      "name": "StorageThrottling-imagesblob",
+      "description": "Azure Blob Storage account 'prodimagesblob' returning HTTP 429 (TooManyRequests) at >500 req/s.",
+      "timestamp": "2026-02-16T18:02:00Z"
+    },
+    {
+      "name": "ImageUpload-FailureRate-High",
+      "description": "Image upload API returning 500s at 67% error rate.",
+      "timestamp": "2026-02-16T18:05:00Z"
+    },
+    {
+      "name": "CDN-CacheMiss-Spike",
+      "description": "CDN origin-pull failure rate at 45% due to storage 429s.",
+      "timestamp": "2026-02-16T18:10:00Z"
+    },
+    {
+      "name": "IncidentResolved-Storage",
+      "description": "Storage throttling resolved. Image upload success rate at 99.7%.",
+      "timestamp": "2026-02-16T20:45:00Z"
+    }
+  ],
+  "logs": [
+    {
+      "source": "image-upload-service",
+      "lines": [
+        "2026-02-16T18:01:00Z INFO  Processing bulk upload batch: 12,000 product images (merchant onboarding)",
+        "2026-02-16T18:02:15Z WARN  Storage SDK retry: HTTP 429 for container 'product-images' (attempt 2/5)",
+        "2026-02-16T18:03:00Z ERROR Storage upload failed after 5 retries: ServerBusy – The rate of requests exceeds limit",
+        "2026-02-16T18:15:00Z WARN  Switching to exponential backoff with jitter (base 2s, max 60s)",
+        "2026-02-16T19:00:00Z INFO  Oncall manually increased storage account IOPS tier to Premium",
+        "2026-02-16T19:30:00Z INFO  Throttling subsiding – 429 rate down to 5%",
+        "2026-02-16T20:30:00Z INFO  Bulk upload batch completed with 340 permanent failures",
+        "2026-02-16T20:45:00Z INFO  System nominal – error rate below 0.3%"
+      ]
+    },
+    {
+      "source": "cdn-edge",
+      "lines": [
+        "2026-02-16T18:10:00Z ERROR Origin pull failed for /images/product/P12345.jpg – 429 from origin",
+        "2026-02-16T18:10:01Z WARN  Serving stale cache for 234 image requests (cache-stale-if-error)",
+        "2026-02-16T18:30:00Z WARN  Cache invalidation backlog: 8,400 entries",
+        "2026-02-16T20:00:00Z INFO  Origin pull success rate recovering (92%)",
+        "2026-02-16T20:45:00Z INFO  CDN cache revalidation complete"
+      ]
+    },
+    {
+      "source": "oncall-chat",
+      "lines": [
+        "2026-02-16T18:08:00Z [oncall-eng] Investigating storage 429s on prodimagesblob",
+        "2026-02-16T18:20:00Z [oncall-eng] Root cause: merchant bulk upload of 12k images hit storage IOPS limit",
+        "2026-02-16T18:45:00Z [oncall-lead] Requesting storage tier upgrade to Premium_LRS",
+        "2026-02-16T19:00:00Z [infra-eng] Storage tier upgraded – takes ~15min to propagate",
+        "2026-02-16T20:50:00Z [oncall-lead] Incident resolved. Scheduling PIR for tomorrow 10am."
+      ]
+    }
+  ],
+  "metrics": [
+    {
+      "name": "storage_throttle_count_per_min",
+      "window": "15m",
+      "values_summary": "0 baseline, peaked at 2,800/min at 18:05Z, declined to 0 by 20:30Z"
+    },
+    {
+      "name": "image_upload_success_rate_pct",
+      "window": "15m",
+      "values_summary": "Dropped from 99.8% to 33% at 18:05Z, recovered to 99.7% by 20:45Z"
+    },
+    {
+      "name": "cdn_origin_pull_error_rate_pct",
+      "window": "15m",
+      "values_summary": "Normal 0.5%, peaked at 45% at 18:10Z, resolved by 20:45Z"
+    },
+    {
+      "name": "merchant_upload_batch_progress_pct",
+      "window": "total",
+      "values_summary": "12,000 images: 97.2% succeeded (11,660), 2.8% failed permanently (340)"
+    },
+    {
+      "name": "estimated_revenue_impact_usd",
+      "window": "total",
+      "values_summary": "~$18,000 in delayed product listings, 340 images requiring manual re-upload"
+    }
+  ],
+  "runbook_excerpt": "Step 1: Identify throttled storage account in Azure Monitor. Step 2: Check if bulk operation is in progress (event grid / activity log). Step 3: If IOPS limit, request tier upgrade or enable soft-throttle with queue-based retry. Step 4: For CDN: enable stale-if-error fallback. Step 5: Post-incident: implement upload rate limiter for bulk jobs. Step 6: Set up storage throttle alert at 50% of IOPS limit as early warning.",
+  "constraints": {
+    "max_time_minutes": 60,
+    "environment": "production",
+    "region": "eastus2"
+  }
+}

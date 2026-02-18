@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/ContainerAgent.yaml
+
+kind: hosted
+name: oncall-copilot
+description: |
+    Multi-agent hosted agent that ingests incident signals (alerts, logs, metrics, runbook excerpts) and runs 4 specialist agents concurrently via Microsoft Agent Framework ConcurrentBuilder. Returns structured triage plus a post-incident report draft. Uses Model Router as its single model deployment.
+metadata:
+    authors:
+        - Microsoft Agent Framework Team
+    tags:
+        - Azure AI AgentServer
+        - Microsoft Agent Framework
+        - Workflows
+        - Multi-Agent
+        - Model Router
+        - SRE
+        - Incident Response
+protocols:
+    - protocol: responses
+      version: ""
+environment_variables:
+    - name: AZURE_OPENAI_ENDPOINT
+      value: ${AZURE_OPENAI_ENDPOINT}
+    - name: AZURE_OPENAI_CHAT_DEPLOYMENT_NAME
+      value: model-router
+    - name: AZURE_AI_PROJECT_ENDPOINT
+      value: ${AZURE_AI_PROJECT_ENDPOINT}
+    - name: MODEL_ROUTER_DEPLOYMENT
+      value: ${MODEL_ROUTER_DEPLOYMENT}
+    - name: LOG_LEVEL
+      value: INFO

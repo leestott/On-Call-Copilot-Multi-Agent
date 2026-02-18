@@ -1,0 +1,81 @@
+{
+  "incident_id": "INC-20260216-099",
+  "title": "Completed: Authentication service outage caused by expired TLS certificate",
+  "severity": "SEV1",
+  "timeframe": {
+    "start": "2026-02-16T14:00:00Z",
+    "end": "2026-02-16T16:35:00Z"
+  },
+  "alerts": [
+    {
+      "name": "AuthFailureRate-Critical",
+      "description": "Authentication success rate dropped below 10% across all regions.",
+      "timestamp": "2026-02-16T14:02:00Z"
+    },
+    {
+      "name": "TLSHandshakeFailures-auth-lb",
+      "description": "TLS handshake failure rate at 98% on auth-lb-primary.",
+      "timestamp": "2026-02-16T14:01:30Z"
+    },
+    {
+      "name": "CustomerLoginFailures-Spike",
+      "description": "Customer-facing login errors exceeded 50k/min.",
+      "timestamp": "2026-02-16T14:05:00Z"
+    },
+    {
+      "name": "IncidentResolved-Auth",
+      "description": "Authentication success rate recovered to 99.8%.",
+      "timestamp": "2026-02-16T16:35:00Z"
+    }
+  ],
+  "logs": [
+    {
+      "source": "auth-service",
+      "lines": [
+        "2026-02-16T14:00:45Z ERROR TLS certificate expired for *.auth.contoso.com (expiry: 2026-02-16T00:00:00Z)",
+        "2026-02-16T14:01:00Z ERROR All inbound HTTPS connections failing with SSL_ERROR_EXPIRED_CERT_ALERT",
+        "2026-02-16T14:45:00Z INFO  Emergency cert rotation initiated by oncall@contoso.com",
+        "2026-02-16T15:30:00Z INFO  New certificate deployed to auth-lb-primary",
+        "2026-02-16T16:00:00Z INFO  Certificate propagated to all edge nodes",
+        "2026-02-16T16:35:00Z INFO  Auth success rate nominal (99.8%)"
+      ]
+    },
+    {
+      "source": "oncall-chat",
+      "lines": [
+        "2026-02-16T14:10:00Z [oncall-lead] Paging security team for emergency cert rotation",
+        "2026-02-16T14:30:00Z [security-eng] New cert issued from internal CA, deploying",
+        "2026-02-16T15:35:00Z [oncall-lead] Primary LB updated, monitoring rollout to edges",
+        "2026-02-16T16:40:00Z [oncall-lead] All clear, moving to post-incident review"
+      ]
+    }
+  ],
+  "metrics": [
+    {
+      "name": "auth_success_rate_pct",
+      "window": "5m",
+      "values_summary": "Dropped from 99.9% to 2% at 14:01Z, recovered to 50% at 15:35Z, full recovery at 16:35Z"
+    },
+    {
+      "name": "customer_login_errors_per_min",
+      "window": "5m",
+      "values_summary": "Baseline ~100/min, peaked at 62,000/min at 14:10Z, returned to baseline by 16:40Z"
+    },
+    {
+      "name": "tls_handshake_failure_rate_pct",
+      "window": "5m",
+      "values_summary": "98% failures from 14:01Z–15:30Z, dropped to 5% by 16:00Z, 0% by 16:35Z"
+    },
+    {
+      "name": "revenue_impact_estimated_usd",
+      "window": "total",
+      "values_summary": "Estimated $340,000 in lost transactions during 2.5-hour window based on historical GMV"
+    }
+  ],
+  "runbook_excerpt": "Step 1: Identify which certificate expired (check cert-manager logs). Step 2: Issue emergency replacement from internal CA. Step 3: Deploy to primary LB first, then edge nodes. Step 4: Verify authentication success rate > 99%. Step 5: Conduct blameless post-incident review within 48 hours.",
+  "constraints": {
+    "max_time_minutes": 60,
+    "environment": "production",
+    "region": "global"
+  }
+}

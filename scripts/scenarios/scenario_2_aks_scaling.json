@@ -1,0 +1,89 @@
+{
+  "incident_id": "INC-2026-0402",
+  "title": "Kubernetes node pool scaling failure causing pod scheduling backlog",
+  "severity": "SEV1",
+  "timeframe": {
+    "start": "2026-02-17T09:00:00Z",
+    "end": null
+  },
+  "alerts": [
+    {
+      "name": "AKS-NodePool-ScaleFailure",
+      "description": "Node pool 'workload-pool' failed to scale from 5 to 12 nodes. Azure VMSS error: InsufficientCapacity.",
+      "timestamp": "2026-02-17T09:02:00Z"
+    },
+    {
+      "name": "PodScheduling-Backlog-Critical",
+      "description": "47 pods in Pending state for >5 minutes due to insufficient CPU/memory.",
+      "timestamp": "2026-02-17T09:05:00Z"
+    },
+    {
+      "name": "HPA-MaxReplicas-Reached",
+      "description": "Horizontal Pod Autoscaler for order-processor at max replicas (20), cannot scale further.",
+      "timestamp": "2026-02-17T09:03:00Z"
+    },
+    {
+      "name": "API-Latency-Degraded",
+      "description": "P95 latency for /api/orders exceeded 8s (threshold: 2s).",
+      "timestamp": "2026-02-17T09:08:00Z"
+    }
+  ],
+  "logs": [
+    {
+      "source": "cluster-autoscaler",
+      "lines": [
+        "2026-02-17T09:01:00Z INFO  Scale-up triggered: need 7 more nodes for pending pods",
+        "2026-02-17T09:01:30Z WARN  VMSS scale-up request sent for workload-pool",
+        "2026-02-17T09:02:00Z ERROR VMSS scale-up FAILED: OverconstrainedAllocationRequest – not enough capacity for Standard_D8s_v3 in westus2",
+        "2026-02-17T09:02:01Z WARN  Retrying with backoff (attempt 2/5)",
+        "2026-02-17T09:04:00Z ERROR All 5 retry attempts exhausted for Standard_D8s_v3",
+        "2026-02-17T09:04:01Z INFO  Attempting alternate VM size Standard_D8s_v5...",
+        "2026-02-17T09:04:30Z ERROR Alternate size also failed: InsufficientCapacity"
+      ]
+    },
+    {
+      "source": "kube-scheduler",
+      "lines": [
+        "2026-02-17T09:03:00Z WARN  0/5 nodes available: 5 Insufficient cpu, 3 Insufficient memory",
+        "2026-02-17T09:05:00Z WARN  47 pods unschedulable – waiting for node scale-up",
+        "2026-02-17T09:08:00Z ERROR Preemption attempted but no lower-priority pods found"
+      ]
+    },
+    {
+      "source": "order-processor",
+      "lines": [
+        "2026-02-17T09:06:00Z WARN  Request queue depth: 3,421 (normal: ~200)",
+        "2026-02-17T09:07:00Z ERROR Processing timeout for batch ORD-BATCH-20260217-AM",
+        "2026-02-17T09:08:30Z WARN  Dropping oldest requests from queue (TTL exceeded)"
+      ]
+    }
+  ],
+  "metrics": [
+    {
+      "name": "aks_node_count",
+      "window": "10m",
+      "values_summary": "Stuck at 5 nodes since 09:00Z despite scale target of 12"
+    },
+    {
+      "name": "pending_pods_count",
+      "window": "5m",
+      "values_summary": "Grew from 0 to 47 between 09:02Z and 09:05Z"
+    },
+    {
+      "name": "order_processing_queue_depth",
+      "window": "5m",
+      "values_summary": "Normal ~200, peaked at 3,421 at 09:06Z"
+    },
+    {
+      "name": "api_orders_p95_latency_ms",
+      "window": "5m",
+      "values_summary": "Baseline 400ms, degraded to 8,200ms at 09:08Z"
+    }
+  ],
+  "runbook_excerpt": "Step 1: Check cluster-autoscaler logs for scale failure reason. Step 2: If InsufficientCapacity, try alternate VM SKU or alternate AZ. Step 3: If urgent, manually scale another node pool. Step 4: Check if PodDisruptionBudgets are blocking preemption. Step 5: If queue backlog > 1000, enable overflow to secondary cluster.",
+  "constraints": {
+    "max_time_minutes": 30,
+    "environment": "production",
+    "region": "westus2"
+  }
+}

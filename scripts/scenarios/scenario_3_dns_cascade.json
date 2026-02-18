@@ -1,0 +1,82 @@
+{
+  "incident_id": "INC-2026-0403",
+  "title": "DNS resolution failures causing cascading microservice timeouts",
+  "severity": "SEV1",
+  "timeframe": {
+    "start": "2026-02-17T14:20:00Z",
+    "end": null
+  },
+  "alerts": [
+    {
+      "name": "CoreDNS-ErrorRate-Critical",
+      "description": "CoreDNS SERVFAIL rate exceeded 40% across all pods.",
+      "timestamp": "2026-02-17T14:20:30Z"
+    },
+    {
+      "name": "MultiService-Timeout-Cascade",
+      "description": "Simultaneous timeout alerts from: auth-service, payment-service, inventory-service, notification-service.",
+      "timestamp": "2026-02-17T14:22:00Z"
+    },
+    {
+      "name": "ExternalDNS-Sync-Failure",
+      "description": "external-dns controller unable to sync DNS records to Azure DNS zone.",
+      "timestamp": "2026-02-17T14:19:00Z"
+    }
+  ],
+  "logs": [
+    {
+      "source": "coredns",
+      "lines": [
+        "2026-02-17T14:19:45Z ERROR plugin/forward: no healthy upstreams for 168.63.129.16:53",
+        "2026-02-17T14:20:00Z WARN  SERVFAIL for auth-service.prod.svc.cluster.local. – upstream timeout",
+        "2026-02-17T14:20:01Z WARN  SERVFAIL for payment-service.prod.svc.cluster.local.",
+        "2026-02-17T14:20:15Z ERROR Cache miss storm: 12,000 queries/sec (normal: 800/sec)",
+        "2026-02-17T14:21:00Z INFO  Upstream 168.63.129.16 marked DOWN after 3 consecutive failures"
+      ]
+    },
+    {
+      "source": "auth-service",
+      "lines": [
+        "2026-02-17T14:20:30Z ERROR DNS resolution failed for payment-service.prod.svc.cluster.local (SERVFAIL)",
+        "2026-02-17T14:20:31Z ERROR Failed to validate JWT: connection to auth-db.prod.svc.cluster.local timed out",
+        "2026-02-17T14:22:00Z FATAL Health check failed (3/3) – marking self unhealthy"
+      ]
+    },
+    {
+      "source": "payment-service",
+      "lines": [
+        "2026-02-17T14:20:35Z ERROR Cannot resolve inventory-service.prod.svc.cluster.local",
+        "2026-02-17T14:21:00Z WARN  Retry exhausted for stock check – failing open (allowing order)",
+        "2026-02-17T14:22:30Z ERROR Oversold 340 items due to inventory check bypass"
+      ]
+    }
+  ],
+  "metrics": [
+    {
+      "name": "coredns_servfail_rate_pct",
+      "window": "5m",
+      "values_summary": "Jumped from 0.01% to 42% at 14:20Z, sustained at 38-45%"
+    },
+    {
+      "name": "coredns_queries_per_sec",
+      "window": "5m",
+      "values_summary": "Normal 800 qps, spiked to 12,000 qps (retry storms)"
+    },
+    {
+      "name": "service_timeout_count_per_min",
+      "window": "5m",
+      "values_summary": "auth: 2,400/min, payment: 1,800/min, inventory: 1,200/min, notification: 900/min"
+    },
+    {
+      "name": "azure_dns_resolver_latency_ms",
+      "window": "5m",
+      "values_summary": "P95 jumped from 2ms to 4,500ms at 14:19Z"
+    }
+  ],
+  "runbook_excerpt": "Step 1: Check CoreDNS pod health and logs. Step 2: Verify Azure DNS resolver (168.63.129.16) is reachable from nodes. Step 3: Check if NSG rules changed on AKS subnet. Step 4: If upstream DNS down, add static hosts entries as temporary workaround. Step 5: Restart CoreDNS pods if cache corrupted. Step 6: Check Azure status page for DNS service incidents.",
+  "constraints": {
+    "max_time_minutes": 15,
+    "environment": "production",
+    "region": "eastus"
+  }
+}

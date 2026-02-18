@@ -1,0 +1,106 @@
+{
+  "_incident_id": "INC-2026-0405",
+  "summary": {
+    "what_happened": "Between 02:00Z and 06:45Z on 2026-04-05, Azure Blob Storage throttling (HTTP 503/429) caused the data-pipeline service to fail 23% of write operations to the analytics-raw container. The throttling was triggered by a nightly ETL batch job that exceeded the storage account's IOPS limits (20,000 write ops/sec attempted against 20,000 account limit with concurrent reads consuming ~4,000 ops/sec). The incident auto-resolved at 06:45Z when the ETL batch completed and write throughput dropped below limits.",
+    "current_status": "RESOLVED – Throttling ceased at 06:45Z when ETL batch completed. All services operating normally. Post-incident review in progress."
+  },
+  "suspected_root_causes": [
+    {
+      "hypothesis": "Nightly ETL batch job exceeded storage account IOPS limits due to lack of write rate limiting combined with concurrent analytical read workload",
+      "evidence": [
+        "Storage account metrics show 24,000 ops/sec attempted vs 20,000 account limit during 02:00-06:45Z window",
+        "ETL batch job logs show 20,000 concurrent blob writes/sec with no throttling/backoff configured",
+        "Concurrent analytical read pipeline consuming ~4,000 ops/sec during same window",
+        "Throttling started exactly when ETL batch reached peak parallelism at 02:15Z",
+        "Throttling stopped at 06:45Z when ETL batch completed – clean correlation"
+      ],
+      "confidence": 0.95
+    },
+    {
+      "hypothesis": "Storage account tier insufficient for combined workload – should be upgraded to premium or partitioned",
+      "evidence": [
+        "Standard GPv2 account with 20,000 IOPS limit has been in use since initial provisioning",
+        "Data volume has grown 3x in 6 months, ETL parallelism was increased 2x last month without capacity review"
+      ],
+      "confidence": 0.7
+    }
+  ],
+  "immediate_actions": [
+    {
+      "step": "No immediate action required – incident is RESOLVED",
+      "owner_role": "oncall-eng",
+      "priority": "P3"
+    },
+    {
+      "step": "Verify all ETL data was eventually written successfully by checking record counts: compare source row count vs analytics-raw blob count for 2026-04-05 batch",
+      "owner_role": "data-eng",
+      "priority": "P2"
+    },
+    {
+      "step": "Check if any downstream analytics reports are missing or incomplete due to the 23% write failure rate",
+      "owner_role": "data-eng",
+      "priority": "P2"
+    }
+  ],
+  "missing_information": [
+    {
+      "question": "How many records were permanently lost (not retried) during the throttling window?",
+      "why_it_matters": "Determines if a data backfill is needed for the 02:00-06:45Z window"
+    },
+    {
+      "question": "Does the ETL batch job have retry/dead-letter logic for failed writes?",
+      "why_it_matters": "If retries exist, data loss may be zero despite the 23% failure rate"
+    },
+    {
+      "question": "What is the projected data growth rate for the next 6 months?",
+      "why_it_matters": "Capacity planning is needed – if growth continues, throttling will worsen every night"
+    }
+  ],
+  "runbook_alignment": {
+    "matched_steps": [
+      "Step 1: Check storage account metrics for throttling indicators (429/503) – confirmed",
+      "Step 2: Identify top contributors to IOPS – nightly ETL identified",
+      "Step 3: Review storage account limits vs actual usage – 24K vs 20K limit confirmed"
+    ],
+    "gaps": [
+      "Runbook does not cover capacity planning triggers (when to upgrade storage tier)",
+      "No documented procedure for ETL backfill after throttling events",
+      "No guidance on implementing write rate limiting in ETL pipelines",
+      "Missing step for splitting workload across multiple storage accounts"
+    ]
+  },
+  "comms": {
+    "slack_update": ":white_check_mark: **INC-2026-0405 | SEV2 | RESOLVED | Storage Throttling** – Azure Blob Storage throttling on analytics-raw resolved at 06:45Z after nightly ETL batch completed. Root cause: ETL write throughput (24K ops/sec) exceeded storage account IOPS limit (20K). 23% write failures during 02:00-06:45Z window. Data integrity check in progress. PIR scheduled.",
+    "stakeholder_update": "Resolved infrastructure incident: Our data analytics pipeline experienced write failures between 02:00-06:45 UTC due to storage capacity limits being exceeded by a nightly batch processing job. The issue auto-resolved when the batch job completed. We are verifying data completeness and implementing capacity improvements to prevent recurrence. No customer-facing impact was observed."
+  },
+  "post_incident_report": {
+    "timeline": [
+      {"time": "02:00Z", "event": "Nightly ETL batch job starts, begins writing to analytics-raw container"},
+      {"time": "02:15Z", "event": "ETL reaches peak parallelism – 20,000 write ops/sec + 4,000 concurrent read ops/sec"},
+      {"time": "02:15Z", "event": "Storage account begins returning HTTP 429/503 throttle responses"},
+      {"time": "02:20Z", "event": "Monitoring alert fires: storage-throttle-prod-analytics"},
+      {"time": "02:25Z", "event": "On-call engineer acknowledges alert, begins investigation"},
+      {"time": "02:45Z", "event": "Root cause identified: IOPS limit exceeded by ETL + read workload"},
+      {"time": "03:00Z", "event": "Decision made to let ETL complete naturally rather than kill and reschedule"},
+      {"time": "04:30Z", "event": "Throttling rate decreases as ETL processes smaller partitions"},
+      {"time": "06:45Z", "event": "ETL batch completes, throttling ceases, all storage metrics return to normal"},
+      {"time": "07:00Z", "event": "Incident marked RESOLVED, PIR initiated"},
+      {"time": "07:15Z", "event": "Data integrity verification started – comparing source vs destination record counts"}
+    ],
+    "customer_impact": "No direct customer impact. Internal analytics reports for 2026-04-05 may have delayed or incomplete data pending integrity verification and potential backfill.",
+    "prevention_actions": [
+      "Implement write rate limiting in ETL pipeline with exponential backoff (target 15,000 ops/sec max to leave headroom for reads)",
+      "Upgrade storage account to premium tier or split analytics-raw across 2 storage accounts for write distribution",
+      "Add capacity monitoring alert at 70% IOPS utilization to trigger proactive review before throttling occurs",
+      "Schedule ETL batch during low-read window (e.g., 00:00-02:00Z when analytical reads are minimal)",
+      "Implement dead-letter queue for failed blob writes with automated retry/backfill pipeline",
+      "Add quarterly storage capacity review to ops calendar tied to data growth projections"
+    ]
+  },
+  "telemetry": {
+    "correlation_id": "PLACEHOLDER",
+    "model_router_deployment": "model-router",
+    "selected_model_if_available": "mock-model-router",
+    "tokens_if_available": {"prompt_tokens": 680, "completion_tokens": 950}
+  }
+}

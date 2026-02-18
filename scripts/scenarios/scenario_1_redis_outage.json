@@ -1,0 +1,63 @@
+{
+  "incident_id": "INC-2026-0401",
+  "title": "Redis cache cluster unresponsive – session service returning 503s",
+  "severity": "SEV2",
+  "timeframe": {
+    "start": "2026-02-17T06:30:00Z",
+    "end": null
+  },
+  "alerts": [
+    {
+      "name": "RedisCluster-Unreachable",
+      "description": "Redis sentinel reports master node unreachable for >60s. All replicas failing health checks.",
+      "timestamp": "2026-02-17T06:30:15Z"
+    },
+    {
+      "name": "SessionService-5xx-Spike",
+      "description": "Session service /api/session returning 503 at 94% error rate.",
+      "timestamp": "2026-02-17T06:31:00Z"
+    }
+  ],
+  "logs": [
+    {
+      "source": "redis-sentinel",
+      "lines": [
+        "2026-02-17T06:29:55Z WARN  Master node redis-master-0 not responding to PING",
+        "2026-02-17T06:30:10Z ERROR Failover triggered: promoting redis-replica-2",
+        "2026-02-17T06:30:12Z ERROR Failover FAILED: replica-2 also unreachable",
+        "2026-02-17T06:30:15Z FATAL All nodes unreachable – cluster DOWN"
+      ]
+    },
+    {
+      "source": "session-service",
+      "lines": [
+        "2026-02-17T06:30:20Z ERROR RedisConnectionException: Unable to connect to redis-master:6379",
+        "2026-02-17T06:30:21Z WARN  Falling back to in-memory session (degraded mode)",
+        "2026-02-17T06:31:00Z ERROR Circuit breaker OPEN for redis – all requests returning 503"
+      ]
+    }
+  ],
+  "metrics": [
+    {
+      "name": "redis_connected_clients",
+      "window": "5m",
+      "values_summary": "Dropped from 1,200 to 0 at 06:30Z"
+    },
+    {
+      "name": "session_service_error_rate_pct",
+      "window": "5m",
+      "values_summary": "Jumped from 0.1% to 94% at 06:31Z"
+    },
+    {
+      "name": "redis_memory_used_bytes",
+      "window": "15m",
+      "values_summary": "maxmemory 8GB; used 7.98GB at 06:28Z – near limit"
+    }
+  ],
+  "runbook_excerpt": "Step 1: Check Redis Sentinel status (`redis-cli -p 26379 sentinel masters`). Step 2: If master unreachable, manually trigger failover (`sentinel failover mymaster`). Step 3: If all nodes down, check underlying VM/pod health. Step 4: If memory pressure, flush volatile keys or increase maxmemory.",
+  "constraints": {
+    "max_time_minutes": 20,
+    "environment": "production",
+    "region": "westus2"
+  }
+}

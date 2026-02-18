@@ -1,0 +1,45 @@
+{
+  "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/servers/main/schema/mcp.json",
+  "servers": {
+    "pagerduty": {
+      "comment": "Pull live incidents, on-call schedules, escalation policies",
+      "command": "npx",
+      "args": ["@pagerduty/mcp-server"],
+      "env": {
+        "PAGERDUTY_API_KEY": "${PAGERDUTY_API_KEY}"
+      }
+    },
+    "slack": {
+      "comment": "Post incident comms to Slack channels, read channel history for context",
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-server-slack"],
+      "env": {
+        "SLACK_BOT_TOKEN": "${SLACK_BOT_TOKEN}"
+      }
+    },
+    "fetch": {
+      "comment": "HTTP calls to status pages, webhooks, external health endpoints",
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-server-fetch"],
+      "env": {}
+    },
+    "kubernetes": {
+      "comment": "Direct K8s access for pod logs, events, describe during container incidents",
+      "command": "npx",
+      "args": ["-y", "mcp-server-kubernetes"],
+      "env": {
+        "KUBECONFIG": "${KUBECONFIG}"
+      }
+    },
+    "jira": {
+      "comment": "Create post-incident action items, link to existing tickets",
+      "command": "npx",
+      "args": ["-y", "mcp-server-jira"],
+      "env": {
+        "JIRA_URL": "${JIRA_URL}",
+        "JIRA_EMAIL": "${JIRA_EMAIL}",
+        "JIRA_API_TOKEN": "${JIRA_API_TOKEN}"
+      }
+    }
+  }
+}

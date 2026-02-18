@@ -1,0 +1,41 @@
+# Secrets and credentials — never commit these
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+coverage.xml
+dist/
+build/
+*.egg-info/
+
+# Virtual environments
+.venv/
+.venv-*/
+venv/
+env/
+
+# Azure developer tools
+.azure/
+*.log
+
+# Temporary debug/output files
+*.txt
+!requirements.txt
+
+# IDE and OS
+.vscode/settings.json
+.idea/
+*.DS_Store
+Thumbs.db
+
+# Docker build artifacts
+*.tar

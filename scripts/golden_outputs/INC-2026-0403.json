@@ -1,0 +1,126 @@
+{
+  "_incident_id": "INC-2026-0403",
+  "summary": {
+    "what_happened": "At 14:19Z, Azure DNS resolver (168.63.129.16) became unreachable from the AKS cluster, causing CoreDNS to return SERVFAIL for 42% of queries. This triggered a DNS retry storm (12,000 qps vs normal 800 qps) that cascaded into timeout failures across all dependent microservices: auth-service, payment-service, inventory-service, and notification-service. The payment-service failed open during the inventory-service outage, resulting in 340 oversold items.",
+    "current_status": "ONGOING – CoreDNS SERVFAIL rate at 38-45%, multiple services experiencing timeouts, payment-service in fail-open mode causing oversells."
+  },
+  "suspected_root_causes": [
+    {
+      "hypothesis": "Azure DNS resolver (168.63.129.16) became unreachable due to network-level issue (NSG change or Azure platform incident)",
+      "evidence": [
+        "CoreDNS log: 'no healthy upstreams for 168.63.129.16:53'",
+        "Azure DNS resolver latency P95 jumped from 2ms to 4,500ms at 14:19Z",
+        "CoreDNS marked upstream 168.63.129.16 DOWN after 3 consecutive failures",
+        "ExternalDNS sync also failed at 14:19Z – suggesting broader DNS infrastructure issue"
+      ],
+      "confidence": 0.85
+    },
+    {
+      "hypothesis": "NSG rule change on AKS subnet blocking outbound UDP/TCP port 53 to Azure DNS",
+      "evidence": [
+        "Runbook mentions checking NSG rules on AKS subnet",
+        "All DNS resolution failed simultaneously – consistent with network policy change"
+      ],
+      "confidence": 0.45
+    }
+  ],
+  "immediate_actions": [
+    {
+      "step": "Check NSG rules on AKS subnet for recent changes blocking outbound port 53 to 168.63.129.16: az network nsg rule list --nsg-name <aks-nsg> -g <rg>",
+      "owner_role": "oncall-eng",
+      "priority": "P0"
+    },
+    {
+      "step": "Check Azure status page for DNS service incidents in eastus",
+      "owner_role": "oncall-eng",
+      "priority": "P0"
+    },
+    {
+      "step": "Add temporary static DNS entries in CoreDNS ConfigMap for critical services as workaround",
+      "owner_role": "oncall-eng",
+      "priority": "P0"
+    },
+    {
+      "step": "URGENT: Disable fail-open in payment-service to stop inventory oversells: set INVENTORY_CHECK_REQUIRED=true",
+      "owner_role": "oncall-eng",
+      "priority": "P0"
+    },
+    {
+      "step": "Restart CoreDNS pods to clear potentially corrupted cache: kubectl rollout restart deployment/coredns -n kube-system",
+      "owner_role": "oncall-eng",
+      "priority": "P1"
+    },
+    {
+      "step": "Configure alternative upstream DNS (e.g., 8.8.8.8) in CoreDNS forward plugin as fallback",
+      "owner_role": "infra-eng",
+      "priority": "P1"
+    }
+  ],
+  "missing_information": [
+    {
+      "question": "Were any NSG or network policy changes deployed to the AKS subnet in the last hour?",
+      "why_it_matters": "A recent network change is the most likely cause of sudden DNS unavailability and would be a quick fix to revert"
+    },
+    {
+      "question": "Is the Azure DNS resolver 168.63.129.16 reachable from node-level (not just pod-level)?",
+      "why_it_matters": "Distinguishes between pod network issue (CNI/calico) vs node-level network issue (NSG/UDR)"
+    },
+    {
+      "question": "Is there an active Azure service incident for DNS in eastus?",
+      "why_it_matters": "If platform-level, mitigation is limited to workarounds until Azure resolves it"
+    },
+    {
+      "question": "How many items have been oversold by the payment-service fail-open behavior?",
+      "why_it_matters": "Need to assess business damage for customer comms and plan inventory reconciliation"
+    }
+  ],
+  "runbook_alignment": {
+    "matched_steps": [
+      "Step 1: Check CoreDNS pod health and logs – done, SERVFAIL identified",
+      "Step 2: Verify Azure DNS resolver reachability",
+      "Step 3: Check if NSG rules changed on AKS subnet",
+      "Step 4: Add static hosts entries as temporary workaround",
+      "Step 5: Restart CoreDNS pods if cache corrupted",
+      "Step 6: Check Azure status page for DNS incidents"
+    ],
+    "gaps": [
+      "No step for disabling fail-open behavior in downstream services during DNS outages",
+      "No step for configuring fallback upstream DNS servers in CoreDNS",
+      "No step for handling business impact (oversold inventory)",
+      "No step for DNS retry storm mitigation (client-side circuit breaking)"
+    ]
+  },
+  "comms": {
+    "slack_update": ":rotating_light: **INC-2026-0403 | SEV1 | DNS Cascade Failure** – Azure DNS resolver unreachable causing 42% CoreDNS SERVFAIL rate. All core services affected: auth, payment, inventory, notification. :warning: CRITICAL: payment-service fail-open has caused 340 oversold items. Immediate action: disable fail-open + add static DNS entries. Next update: 10 min.",
+    "stakeholder_update": "Active SEV1 incident: DNS infrastructure failure is causing widespread service timeouts across all customer-facing applications. Authentication, payments, and inventory systems are intermittently failing. A secondary impact has been identified where 340 items were oversold due to inventory check bypasses. Engineering is implementing emergency DNS workarounds and disabling unsafe fallback behaviors. Estimated stabilization: 15-30 minutes."
+  },
+  "post_incident_report": {
+    "timeline": [
+      {"time": "14:19Z", "event": "Azure DNS resolver (168.63.129.16) became unreachable from AKS cluster"},
+      {"time": "14:19Z", "event": "ExternalDNS sync failure alert fired"},
+      {"time": "14:20Z", "event": "CoreDNS SERVFAIL rate jumped to 42%, DNS retry storm (12,000 qps)"},
+      {"time": "14:20Z", "event": "auth-service unable to resolve payment-service, JWT validation failing"},
+      {"time": "14:21Z", "event": "CoreDNS marked upstream DNS server as DOWN"},
+      {"time": "14:21Z", "event": "payment-service entered fail-open mode for inventory checks"},
+      {"time": "14:22Z", "event": "Multi-service timeout cascade alert – auth, payment, inventory, notification"},
+      {"time": "14:22Z", "event": "auth-service marked itself unhealthy after 3 failed health checks"},
+      {"time": "14:22Z", "event": "340 items oversold due to payment-service inventory bypass"},
+      {"time": "ONGOING", "event": "Investigation and mitigation in progress"}
+    ],
+    "customer_impact": "Widespread service degradation across all authenticated user flows. Login failures, payment delays, and 340 items oversold requiring inventory reconciliation and customer notification.",
+    "prevention_actions": [
+      "Configure multiple upstream DNS servers in CoreDNS (Azure DNS + public fallback)",
+      "Implement DNS-level circuit breaker with cached response fallback",
+      "Change payment-service fail-open to fail-closed for inventory checks – overselling is worse than rejection",
+      "Add DNS health monitoring as a top-level infrastructure alert",
+      "Implement client-side DNS caching with longer TTL for internal services",
+      "Add chaos engineering test for DNS failure scenario"
+    ]
+  },
+  "telemetry": {
+    "correlation_id": "PLACEHOLDER",
+    "model_router_deployment": "model-router",
+    "selected_model_if_available": "mock-model-router",
+    "tokens_if_available": {"prompt_tokens": 850, "completion_tokens": 1100}
+  }
+}

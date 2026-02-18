@@ -1,0 +1,98 @@
+{
+  "_incident_id": "INC-2026-0404",
+  "summary": {
+    "what_happened": "At 09:05Z, a CPU utilization alert fired on the staging-web-pool indicating >75% usage for 5 minutes. A single pod (web-frontend-7b4d2) is consuming elevated CPU due to a scheduled load test that runs every Monday 09:00-09:30 UTC against staging.",
+    "current_status": "MONITORING – CPU spike appears to be expected behavior from scheduled load test. No customer impact."
+  },
+  "suspected_root_causes": [
+    {
+      "hypothesis": "Scheduled Monday load test (09:00-09:30 UTC) driving expected CPU increase on staging-web-pool",
+      "evidence": [
+        "CPU spike started at 09:05Z, consistent with 09:00 scheduled load test start",
+        "Alert is on staging environment only, no production impact",
+        "Single pod affected – web-frontend-7b4d2",
+        "75% threshold is normal for staging under load test conditions"
+      ],
+      "confidence": 0.9
+    },
+    {
+      "hypothesis": "Memory leak or inefficient code path in web-frontend causing CPU spinning",
+      "evidence": [
+        "[UNKNOWN] No memory metrics provided to correlate",
+        "Only one data point (5 min window) – insufficient to establish pattern"
+      ],
+      "confidence": 0.15
+    }
+  ],
+  "immediate_actions": [
+    {
+      "step": "Verify the Monday load test is currently running: check load-test scheduler logs in staging CI/CD pipeline",
+      "owner_role": "oncall-eng",
+      "priority": "P3"
+    },
+    {
+      "step": "Monitor CPU for next 25 minutes – if the spike resolves by 09:30Z this confirms the load test hypothesis",
+      "owner_role": "oncall-eng",
+      "priority": "P3"
+    },
+    {
+      "step": "If CPU remains elevated past 09:35Z, investigate pod web-frontend-7b4d2 for code-level issues: kubectl top pod web-frontend-7b4d2 -n staging",
+      "owner_role": "oncall-eng",
+      "priority": "P2"
+    }
+  ],
+  "missing_information": [
+    {
+      "question": "Is the scheduled Monday staging load test currently running?",
+      "why_it_matters": "This is the most likely cause; confirming it would close this alert as a false positive"
+    },
+    {
+      "question": "What are the memory utilization metrics for pod web-frontend-7b4d2?",
+      "why_it_matters": "Memory leak could cause CPU spinning and would need different remediation"
+    },
+    {
+      "question": "What is the historical CPU baseline for staging-web-pool on Mondays at 09:00?",
+      "why_it_matters": "Comparing against typical Monday load test CPU levels would confirm if this is within normal bounds"
+    },
+    {
+      "question": "Has any code been deployed to staging since the last successful load test?",
+      "why_it_matters": "A recent deploy could introduce performance regression that amplifies the load test impact"
+    },
+    {
+      "question": "What are the configured CPU resource requests/limits for web-frontend pods?",
+      "why_it_matters": "If limits are too low, expected workloads will trigger alerts unnecessarily – may need alert tuning"
+    }
+  ],
+  "runbook_alignment": {
+    "matched_steps": [
+      "Step 1: Identify affected pod and node – web-frontend-7b4d2 on staging-web-pool"
+    ],
+    "gaps": [
+      "No runbook provided – using general SRE practices for staging CPU alerts",
+      "Alert threshold (75%) may be too low for staging environments under load test – consider raising to 90% or suppressing during scheduled windows"
+    ]
+  },
+  "comms": {
+    "slack_update": ":information_source: **INC-2026-0404 | SEV4 | Staging CPU Alert** – CPU >75% on staging-web-pool pod web-frontend-7b4d2. Likely caused by scheduled Monday load test (09:00-09:30 UTC). No customer impact. Monitoring – will auto-close if resolved by 09:35Z.",
+    "stakeholder_update": "Low-severity alert on staging environment only. CPU spike on a single staging pod is consistent with the weekly scheduled load test. No customer or production impact. Will monitor and auto-resolve."
+  },
+  "post_incident_report": {
+    "timeline": [
+      {"time": "09:00Z", "event": "Scheduled Monday staging load test begins (expected)"},
+      {"time": "09:05Z", "event": "CPU utilization alert fires: staging-web-pool >75% for 5 min"},
+      {"time": "PENDING", "event": "Awaiting load test completion at ~09:30Z to confirm auto-resolution"}
+    ],
+    "customer_impact": "None. Staging environment only – no customer-facing services affected.",
+    "prevention_actions": [
+      "Tune staging CPU alert threshold to 90% or add exception for scheduled load test windows",
+      "Add load-test-active annotation to pods during scheduled tests so alerts can auto-suppress",
+      "Consider moving load tests to a dedicated test environment separate from staging"
+    ]
+  },
+  "telemetry": {
+    "correlation_id": "PLACEHOLDER",
+    "model_router_deployment": "model-router",
+    "selected_model_if_available": "mock-model-router",
+    "tokens_if_available": {"prompt_tokens": 320, "completion_tokens": 520}
+  }
+}

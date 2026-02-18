@@ -1,0 +1,120 @@
+{
+  "_incident_id": "INC-2026-0402",
+  "summary": {
+    "what_happened": "At 09:00Z, AKS cluster-autoscaler attempted to scale node pool 'workload-pool' from 5 to 12 nodes to handle increased pod demand. The scale-up failed with InsufficientCapacity for both primary (Standard_D8s_v3) and alternate (Standard_D8s_v5) VM SKUs in westus2. This left 47 pods unschedulable, causing order-processor queue backlog to spike to 3,421 (normal: 200) and API P95 latency to degrade to 8.2s.",
+    "current_status": "ONGOING – Node pool stuck at 5 nodes, 47 pods pending, order processing severely degraded with requests being dropped."
+  },
+  "suspected_root_causes": [
+    {
+      "hypothesis": "Azure regional capacity exhaustion for D-series VMs in westus2",
+      "evidence": [
+        "VMSS scale-up FAILED: OverconstrainedAllocationRequest for Standard_D8s_v3",
+        "Alternate VM size Standard_D8s_v5 also failed with InsufficientCapacity",
+        "All 5 retry attempts exhausted across both SKUs"
+      ],
+      "confidence": 0.9
+    },
+    {
+      "hypothesis": "Sudden demand spike requiring 7 additional nodes simultaneously exceeded regional burst capacity",
+      "evidence": [
+        "Scale request went from 5 to 12 nodes – a 140% increase in a single event",
+        "No gradual scale-up preceded this, suggesting a sudden workload spike"
+      ],
+      "confidence": 0.6
+    }
+  ],
+  "immediate_actions": [
+    {
+      "step": "Enable overflow routing to secondary cluster in alternate region (e.g., eastus2)",
+      "owner_role": "oncall-eng",
+      "priority": "P0"
+    },
+    {
+      "step": "Attempt manual scale-up using alternate VM SKU family (e.g., Standard_E8s_v5 or Standard_F8s_v2) in same region",
+      "owner_role": "infra-eng",
+      "priority": "P0"
+    },
+    {
+      "step": "Create emergency node pool in alternate availability zone within westus2",
+      "owner_role": "infra-eng",
+      "priority": "P0"
+    },
+    {
+      "step": "Reduce order-processor resource requests temporarily to fit more pods on existing nodes",
+      "owner_role": "oncall-eng",
+      "priority": "P1"
+    },
+    {
+      "step": "Notify Azure Support of regional capacity issue – request priority VM allocation",
+      "owner_role": "oncall-lead",
+      "priority": "P1"
+    },
+    {
+      "step": "Stop dropping oldest requests – implement priority queue to process high-value orders first",
+      "owner_role": "oncall-eng",
+      "priority": "P1"
+    }
+  ],
+  "missing_information": [
+    {
+      "question": "Is a secondary cluster available in an alternate region for overflow traffic?",
+      "why_it_matters": "If yes, traffic can be rerouted immediately to restore processing capacity"
+    },
+    {
+      "question": "What triggered the sudden demand spike requiring 7 additional nodes?",
+      "why_it_matters": "A flash sale, batch job, or DDoS attack would each require different mitigation strategies"
+    },
+    {
+      "question": "Are there PodDisruptionBudgets preventing eviction of lower-priority pods from the existing 5 nodes?",
+      "why_it_matters": "Might allow freeing resources for critical order-processor pods without new nodes"
+    },
+    {
+      "question": "What is the current Azure subscription VM quota for westus2?",
+      "why_it_matters": "Capacity failure may be quota-related rather than regional – quotas can be raised via support"
+    }
+  ],
+  "runbook_alignment": {
+    "matched_steps": [
+      "Step 1: Check cluster-autoscaler logs for scale failure reason – done, InsufficientCapacity identified",
+      "Step 2: Try alternate VM SKU or alternate AZ – partially done, alt SKU failed",
+      "Step 5: Enable overflow to secondary cluster if queue > 1000 – queue at 3,421, overflow needed"
+    ],
+    "gaps": [
+      "No step for creating emergency node pool in alternate AZ",
+      "No step for reducing resource requests as temporary measure to increase pod density",
+      "No step for engaging Azure Support for capacity issues",
+      "Runbook Step 3 (manually scale another node pool) not executed yet"
+    ]
+  },
+  "comms": {
+    "slack_update": ":fire: **INC-2026-0402 | SEV1 | AKS Scaling Failure** – Cannot scale workload-pool: Azure capacity exhaustion for D-series VMs in westus2. 47 pods pending, order queue at 3,421 (15x normal), API P95 at 8.2s. Working on: alt VM family, overflow routing, emergency node pool. Next update: 10 min.",
+    "stakeholder_update": "Active SEV1 incident: Order processing severely degraded due to Azure infrastructure capacity limitations. New compute nodes cannot be provisioned in the current region. Engineering is activating failover strategies including alternate regions and VM types. Estimated impact: order processing delays of 5-15 minutes for affected users. Revenue impact is being assessed."
+  },
+  "post_incident_report": {
+    "timeline": [
+      {"time": "09:00Z", "event": "Cluster autoscaler triggered scale-up from 5 to 12 nodes"},
+      {"time": "09:02Z", "event": "VMSS scale-up failed: InsufficientCapacity for Standard_D8s_v3"},
+      {"time": "09:03Z", "event": "HPA hit max replicas (20) for order-processor"},
+      {"time": "09:04Z", "event": "Retry with Standard_D8s_v5 also failed"},
+      {"time": "09:05Z", "event": "47 pods pending, scheduling backlog alert fired"},
+      {"time": "09:06Z", "event": "Order queue depth reached 3,421"},
+      {"time": "09:07Z", "event": "Order batch processing timeout"},
+      {"time": "09:08Z", "event": "API P95 latency degraded to 8.2s, oldest requests being dropped"},
+      {"time": "ONGOING", "event": "Exploring alternate VM SKUs, regions, and emergency node pools"}
+    ],
+    "customer_impact": "Order processing delays affecting all users. API latency at 8.2s (normal: 400ms). Some order requests being dropped after TTL expiry. Order queue backlog of 3,000+ orders pending processing.",
+    "prevention_actions": [
+      "Configure multi-SKU node pools with priority list of VM families for automatic fallback",
+      "Pre-provision standby capacity in alternate availability zones or regions",
+      "Set proactive cluster autoscaler alerts at 70% node utilization for early scaling",
+      "Implement cross-region active-active for order processing",
+      "Add Azure capacity reservation for critical workloads"
+    ]
+  },
+  "telemetry": {
+    "correlation_id": "PLACEHOLDER",
+    "model_router_deployment": "model-router",
+    "selected_model_if_available": "mock-model-router",
+    "tokens_if_available": {"prompt_tokens": 900, "completion_tokens": 1200}
+  }
+}

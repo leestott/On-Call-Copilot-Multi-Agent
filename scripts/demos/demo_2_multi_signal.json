@@ -1,0 +1,68 @@
+{
+  "incident_id": "INC-20260217-002",
+  "title": "Order processing latency degradation with database connection pool exhaustion",
+  "severity": "SEV1",
+  "timeframe": {
+    "start": "2026-02-17T01:15:00Z",
+    "end": "2026-02-17T02:45:00Z"
+  },
+  "alerts": [
+    {
+      "name": "HighLatency-order-service",
+      "description": "P99 latency for order-service exceeded 5s (threshold: 2s) for 10 minutes.",
+      "timestamp": "2026-02-17T01:15:00Z"
+    },
+    {
+      "name": "DBConnectionPoolExhausted-orders-db",
+      "description": "Connection pool utilization at 100% on orders-db-primary replica.",
+      "timestamp": "2026-02-17T01:18:00Z"
+    },
+    {
+      "name": "PodRestarts-order-worker",
+      "description": "order-worker pods restarting with OOMKilled in namespace prod-orders.",
+      "timestamp": "2026-02-17T01:22:00Z"
+    }
+  ],
+  "logs": [
+    {
+      "source": "order-service",
+      "lines": [
+        "2026-02-17T01:16:32Z ERROR Failed to acquire DB connection within 30s timeout",
+        "2026-02-17T01:16:33Z WARN  Connection pool queue depth: 247 (max: 50)",
+        "2026-02-17T01:17:01Z ERROR Timeout processing order ORD-8834921; rolling back",
+        "2026-02-17T01:20:45Z INFO  Circuit breaker OPEN for orders-db-primary"
+      ]
+    },
+    {
+      "source": "order-worker",
+      "lines": [
+        "2026-02-17T01:19:00Z ERROR java.lang.OutOfMemoryError: Java heap space",
+        "2026-02-17T01:19:01Z FATAL Worker shutting down – unrecoverable OOM",
+        "2026-02-17T01:22:10Z INFO  Pod restarted (restart count: 4)"
+      ]
+    }
+  ],
+  "metrics": [
+    {
+      "name": "order_service_p99_latency_ms",
+      "window": "15m",
+      "values_summary": "Baseline 800ms, rose to 12,400ms at 01:20Z, sustained above 5,000ms until 02:30Z"
+    },
+    {
+      "name": "db_connection_pool_utilization_pct",
+      "window": "15m",
+      "values_summary": "Climbed from 60% to 100% between 01:10Z and 01:18Z, stayed at 100% for 70 min"
+    },
+    {
+      "name": "order_worker_memory_bytes",
+      "window": "15m",
+      "values_summary": "Grew linearly from 1.2GB to 4.0GB (limit) between 01:00Z and 01:19Z"
+    }
+  ],
+  "runbook_excerpt": "Step 1: Verify DB primary health and replication lag. Step 2: Scale connection pool max_connections if < 200. Step 3: Restart order-worker pods if OOMKilled. Step 4: Enable DB read replica failover. Step 5: Notify payments team if order backlog > 10k.",
+  "constraints": {
+    "max_time_minutes": 30,
+    "environment": "production",
+    "region": "westeurope"
+  }
+}

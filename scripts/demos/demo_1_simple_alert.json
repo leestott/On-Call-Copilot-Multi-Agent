@@ -1,0 +1,30 @@
+{
+  "incident_id": "INC-20260217-001",
+  "title": "API Gateway 5xx spike on payments endpoint",
+  "severity": "SEV3",
+  "timeframe": {
+    "start": "2026-02-17T03:42:00Z",
+    "end": null
+  },
+  "alerts": [
+    {
+      "name": "HighErrorRate-payments-api",
+      "description": "5xx error rate exceeded 5% threshold on /v1/payments for 5 consecutive minutes.",
+      "timestamp": "2026-02-17T03:42:00Z"
+    }
+  ],
+  "logs": [],
+  "metrics": [
+    {
+      "name": "http_5xx_rate",
+      "window": "5m",
+      "values_summary": "Jumped from 0.2% to 8.3% at 03:42Z"
+    }
+  ],
+  "runbook_excerpt": "Step 1: Check API Gateway health dashboard. Step 2: Verify downstream service connectivity.",
+  "constraints": {
+    "max_time_minutes": 15,
+    "environment": "production",
+    "region": "eastus2"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "incident_id": "INC-2026-0404",
+  "title": "Minimal: CPU alert on staging batch processor",
+  "severity": "SEV4",
+  "timeframe": {
+    "start": "2026-02-17T11:00:00Z",
+    "end": null
+  },
+  "alerts": [
+    {
+      "name": "HighCPU-batch-processor-staging",
+      "description": "CPU utilization exceeded 85% on batch-processor-staging for 10 minutes.",
+      "timestamp": "2026-02-17T11:00:00Z"
+    }
+  ],
+  "logs": [],
+  "metrics": [
+    {
+      "name": "cpu_utilization_pct",
+      "window": "10m",
+      "values_summary": "Sustained at 87-91% since 10:50Z"
+    }
+  ],
+  "runbook_excerpt": "",
+  "constraints": {
+    "max_time_minutes": 30,
+    "environment": "staging",
+    "region": "northeurope"
+  }
+}
