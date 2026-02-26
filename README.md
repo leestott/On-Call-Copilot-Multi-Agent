@@ -77,8 +77,8 @@ AZURE_AI_PROJECT_ENDPOINT=https://<account>.services.ai.azure.com/api/projects/<
 > |----------|--------------------------|
 > | `AZURE_OPENAI_ENDPOINT` | AI Services resource → Overview → Endpoint |
 > | `AZURE_OPENAI_API_KEY` | AI Services resource → Keys and Endpoint |
-> | `AZURE_OPENAI_CHAT_DEPLOYMENT_NAME` | AI Foundry → Deployments (usually `model-router`) |
-> | `AZURE_AI_PROJECT_ENDPOINT` | AI Foundry → project → Overview → Endpoint |
+> | `AZURE_OPENAI_CHAT_DEPLOYMENT_NAME` | Microsoft Foundry → Deployments (usually `model-router`) |
+> | `AZURE_AI_PROJECT_ENDPOINT` | Microsoft Foundry → project → Overview → Endpoint |
 >
 > `.env` is in `.gitignore` — your credentials will not be committed.
 

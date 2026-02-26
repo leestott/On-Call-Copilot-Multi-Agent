@@ -60,8 +60,8 @@ On-Call Copilot runs as a single container that hosts four specialist agents (Tr
 
 | Requirement | Details |
 |-------------|---------|
-| **Azure subscription** | With permissions to create AI Foundry resources |
-| **Azure AI Foundry project** | With a capability host that has `enablePublicHostingEnvironment=true` |
+| **Azure subscription** | With permissions to create Microsoft Foundry resources |
+| **Microsoft Foundry project** | With a capability host that has `enablePublicHostingEnvironment=true` |
 | **Model Router deployment** | Deployed in your Azure OpenAI resource ([how-to](https://learn.microsoft.com/azure/ai-foundry/openai/how-to/model-router)) |
 | **Azure CLI** | v2.80+ (`az --version`) |
 | **Azure Developer CLI** | v1.23.0+ (`azd version`) — for Option A |
@@ -178,7 +178,7 @@ azd up
 ```
 
 `azd up` will:
-1. Provision the Azure AI Foundry project (if needed)
+1. Provision the Microsoft Foundry project (if needed)
 2. Deploy the Model Router model
 3. Build the Docker image remotely
 4. Register the hosted agent with Foundry
@@ -310,9 +310,9 @@ These are set in `agent.yaml` and injected automatically by Foundry at container
 >
 > | Variable | Where to find it |
 > |----------|-----------------|
-> | `AZURE_OPENAI_ENDPOINT` | AI Foundry portal → your project → Overview → Endpoint |
-> | `AZURE_AI_PROJECT_ENDPOINT` | AI Foundry portal → your project → Overview → Project endpoint |
-> | `AZURE_OPENAI_CHAT_DEPLOYMENT_NAME` | AI Foundry portal → Deployments → your Model Router deployment name |
+> | `AZURE_OPENAI_ENDPOINT` | Microsoft Foundry portal → your project → Overview → Endpoint |
+> | `AZURE_AI_PROJECT_ENDPOINT` | Microsoft Foundry portal → your project → Overview → Project endpoint |
+> | `AZURE_OPENAI_CHAT_DEPLOYMENT_NAME` | Microsoft Foundry portal → Deployments → your Model Router deployment name |
 
 ---
 

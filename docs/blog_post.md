@@ -23,7 +23,7 @@ The fix is specialisation: decompose the task into focused agents and run them i
 
 ## Architecture
 
-On-Call Copilot is deployed as a **Foundry Hosted Agent**, a containerised Python service that runs on Azure AI Foundry's managed infrastructure. The core orchestrator uses `ConcurrentBuilder` from the Microsoft Agent Framework SDK to run four specialist agents in parallel via `asyncio.gather()`.
+On-Call Copilot is deployed as a **Foundry Hosted Agent**, a containerised Python service that runs on Microsoft Foundry's managed infrastructure. The core orchestrator uses `ConcurrentBuilder` from the Microsoft Agent Framework SDK to run four specialist agents in parallel via `asyncio.gather()`.
 
 ![Architecture](./On%20Call_docs_architecture.png)
 ```
@@ -431,7 +431,7 @@ A few natural extensions:
 
 - [Microsoft Agent Framework](https://learn.microsoft.com/agent-framework/) — the SDK powering the multi-agent orchestration
 - [Model Router](https://learn.microsoft.com/azure/ai-foundry/openai/how-to/model-router?view=foundry&preserve-view=true) — automatic model selection based on prompt complexity
-- [Foundry Hosted Agents](https://learn.microsoft.com/azure/ai-foundry/agents/how-to/deploy-hosted-agent) — deploying containerised agents on Azure AI Foundry
+- [Foundry Hosted Agents](https://learn.microsoft.com/azure/ai-foundry/agents/how-to/deploy-hosted-agent) — deploying containerised agents on Microsoft Foundry
 - [ConcurrentBuilder Pattern](https://github.com/microsoft-foundry/foundry-samples) — the agents-in-workflow sample this project follows
 - [DefaultAzureCredential](https://learn.microsoft.com/python/api/azure-identity/azure.identity.defaultazurecredential) — the zero-config auth chain used throughout
 - [Hosted Agents Concepts](https://learn.microsoft.com/azure/ai-foundry/agents/concepts/hosted-agents?view=foundry) — architecture overview of Foundry Hosted Agents
