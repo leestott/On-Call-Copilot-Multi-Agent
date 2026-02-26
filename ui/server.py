@@ -3,9 +3,8 @@
 On-Call Copilot local UI server.
 
 Usage:
-    cd "c:/Users/leestott/On Call"
     set AZURE_AI_PROJECT_ENDPOINT=https://...
-    .venv-1\Scripts\python.exe ui\server.py
+    .venv\Scripts\python.exe ui\server.py
 
 Opens at http://localhost:7860
 """

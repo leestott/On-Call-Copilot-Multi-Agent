@@ -25,7 +25,7 @@ The fix is specialisation: decompose the task into focused agents and run them i
 
 On-Call Copilot is deployed as a **Foundry Hosted Agent**, a containerised Python service that runs on Azure AI Foundry's managed infrastructure. The core orchestrator uses `ConcurrentBuilder` from the Microsoft Agent Framework SDK to run four specialist agents in parallel via `asyncio.gather()`.
 
-![Architecture](../docs/On%20Call_docs_architecture.png)
+![Architecture](./On%20Call_docs_architecture.png)
 ```
 Client (CLI / curl / browser UI)
         │
@@ -230,6 +230,10 @@ To make the agent accessible to people who aren't comfortable with curl, the pro
 
 Click a quick-load button and the JSON editor fills instantly with the full incident payload, a severity badge appears, and the editor validates the JSON in real time.
 
+![Quick-load dropdown with demo and scenario presets](./screenshots/ui_02_quick_load.png)
+
+*The quick-load panel: 3 demo incidents and 5 scenario files ready to load.*
+
 ![Demo 1 loaded: API Gateway SEV3 incident JSON in editor](./screenshots/ui_03_incident_loaded.png)
 
 *Demo 1 loaded: API Gateway 5xx spike, SEV3. The JSON is editable, so you can modify any field before submitting.*
@@ -280,7 +284,7 @@ The PIR timeline uses a vertical dot-and-line layout. An ONGOING event pulses in
 # Windows PowerShell
 $env:AZURE_AI_PROJECT_ENDPOINT = "https://<account>.services.ai.azure.com/api/projects/<project>"
 $env:AGENT_NAME = "oncall-copilot"
-.\.venv-1\Scripts\python.exe ui\server.py
+.\.venv\Scripts\python.exe ui\server.py
 # → open http://localhost:7860
 ```
 
@@ -291,7 +295,7 @@ export AGENT_NAME="oncall-copilot"
 python ui/server.py
 ```
 
-The server is pure Python stdlib (`http.server`) plus `requests`; no pip installs.
+The server uses Python's stdlib `http.server` plus `requests` and `python-dotenv` — both are already in `requirements.txt`.
 
 ---
 
@@ -299,12 +303,13 @@ The server is pure Python stdlib (`http.server`) plus `requests`; no pip install
 
 ### Option A: `azd up` (90 seconds)
 
+The repo includes `azure.yaml` and `agent.yaml`, so deployment is a single command:
+
 ```bash
-azd init -t https://github.com/Azure-Samples/azd-ai-starter-basic
 azd up
 ```
 
-This builds the Docker image, pushes to Azure Container Registry, and creates the Hosted Agent. The `agent.yaml` file defines the agent name, the container image reference, and environment variable bindings.
+This provisions the Foundry project resources, builds the Docker image, pushes to Azure Container Registry, deploys a Model Router instance, and creates the Hosted Agent. The `agent.yaml` defines the agent name, protocols, and environment variable bindings; `azure.yaml` configures the container resources, scaling, and model deployments.
 
 ### Option B: Python SDK deploy script
 
@@ -340,10 +345,10 @@ Every agent is instructed to return *only* valid JSON with a defined schema. Thi
 `AZURE_OPENAI_CHAT_DEPLOYMENT_NAME=model-router` is the only model reference in the codebase. Model Router handles the gpt-4o vs gpt-4o-mini vs o3-mini decision at runtime based on prompt complexity. When new models are released to Model Router, the agent gets better for free.
 
 The models selected by Model Router and associated costs
-![Model Selection](../docs/screenshots/ui_models_selected.png)
+![Model Selection](./screenshots/ui_models_selected.png)
 
-Model Router Insights and Telementry from Microsoft Foundry
-![Model Router Cost](../docs/screenshots/ui_model_router.png)
+Model Router Insights and Telemetry from Microsoft Foundry
+![Model Router Cost](./screenshots/ui_model_router.png)
 
 ### 4. `DefaultAzureCredential` everywhere
 
@@ -360,7 +365,7 @@ Each agent's system prompt is a plain Python string in `app/agents/<name>.py`. T
 The agent instructions include explicit guardrails that don't require external filtering:
 
 - **No hallucination**: when data is insufficient, the agent sets `confidence: 0` and adds entries to `missing_information` rather than inventing facts.
-- **Secret redaction**: credential-like patterns are replaced with `[REDACTED]` before reaching the model.
+- **Secret redaction**: each agent is instructed to redact credential-like patterns as `[REDACTED]` in its output.
 - **Mark unknowns**: undeterminable fields use the literal string `"UNKNOWN"` rather than plausible-sounding guesses.
 - **Diagnostic suggestions**: when signal is sparse, `immediate_actions` includes diagnostic steps that will gather the missing information before prescribing a fix.
 
@@ -422,13 +427,14 @@ A few natural extensions:
 - **Human-in-the-loop**: surface the `missing_information` list back to the on-call engineer as a form before proceeding, so the agent can re-run with the gaps filled.
 - **Feedback loop**: track confidence vs actual root cause accuracy over time; use the delta to improve agent instructions.
 
-## Resoruces 
+## Resources
 
-Agent Framework https://learn.microsoft.com/agent-framework/
-
-Model Router https://learn.microsoft.com/azure/ai-foundry/openai/how-to/model-router?view=foundry&preserve-view=true
-
-Hosted Agents https://learn.microsoft.com/azure/ai-foundry/agents/concepts/hosted-agents?view=foundry
+- [Microsoft Agent Framework](https://learn.microsoft.com/agent-framework/) — the SDK powering the multi-agent orchestration
+- [Model Router](https://learn.microsoft.com/azure/ai-foundry/openai/how-to/model-router?view=foundry&preserve-view=true) — automatic model selection based on prompt complexity
+- [Foundry Hosted Agents](https://learn.microsoft.com/azure/ai-foundry/agents/how-to/deploy-hosted-agent) — deploying containerised agents on Azure AI Foundry
+- [ConcurrentBuilder Pattern](https://github.com/microsoft-foundry/foundry-samples) — the agents-in-workflow sample this project follows
+- [DefaultAzureCredential](https://learn.microsoft.com/python/api/azure-identity/azure.identity.defaultazurecredential) — the zero-config auth chain used throughout
+- [Hosted Agents Concepts](https://learn.microsoft.com/azure/ai-foundry/agents/concepts/hosted-agents?view=foundry) — architecture overview of Foundry Hosted Agents
 
 ---
 
