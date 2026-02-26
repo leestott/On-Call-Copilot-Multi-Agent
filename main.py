@@ -9,6 +9,9 @@
 
 import sys
 import os
+from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).resolve().parent / ".env")
 print(f"[oncall-copilot] Starting... Python {sys.version}", flush=True)
 print(f"[oncall-copilot] AZURE_OPENAI_ENDPOINT={os.environ.get('AZURE_OPENAI_ENDPOINT','<unset>')}", flush=True)
 print(f"[oncall-copilot] AZURE_OPENAI_CHAT_DEPLOYMENT_NAME={os.environ.get('AZURE_OPENAI_CHAT_DEPLOYMENT_NAME','<unset>')}", flush=True)

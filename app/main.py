@@ -18,6 +18,10 @@ from __future__ import annotations
 import json
 import logging
 import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 import re
 from typing import Any
 

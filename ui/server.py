@@ -21,6 +21,9 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 import requests
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 ROOT = Path(__file__).resolve().parent.parent
 DEMOS_DIR     = ROOT / "scripts" / "demos"
@@ -42,18 +45,28 @@ SCENARIO_LABELS = {
 }
 
 
+# ─── auth ─────────────────────────────────────────────────────────────────────
+
+# Authenticate once at startup, reuse for all requests.
+# The Agents API requires Azure AD bearer tokens (RBAC), not API keys.
+def _init_credential():
+    from azure.identity import InteractiveBrowserCredential
+    print("  Opening browser for Azure sign-in (one-time)...", flush=True)
+    cred = InteractiveBrowserCredential()
+    # Warm up the credential so the browser opens now, not on first request
+    cred.get_token("https://ai.azure.com/.default")
+    print("  Signed in successfully.", flush=True)
+    return cred
+
+_credential = _init_credential()
+
+
 # ─── helpers ──────────────────────────────────────────────────────────────────
 
-def _get_token() -> str:
-    r = subprocess.run(
-        ["az", "account", "get-access-token",
-         "--resource", "https://ai.azure.com",
-         "--query", "accessToken", "-o", "tsv"],
-        capture_output=True, text=True, shell=True,
-    )
-    if r.returncode != 0 or not r.stdout.strip():
-        raise RuntimeError("az login required – run `az login` first")
-    return r.stdout.strip()
+def _get_auth_headers() -> dict:
+    """Return bearer token headers using the cached credential."""
+    token = _credential.get_token("https://ai.azure.com/.default").token
+    return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
 
 def _invoke_agent(content: str) -> dict:
@@ -66,8 +79,7 @@ def _invoke_agent(content: str) -> dict:
     agent_name    = os.environ.get("AGENT_NAME", "oncall-copilot")
     agent_version = os.environ.get("AGENT_VERSION", "")
 
-    token   = _get_token()
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    headers = _get_auth_headers()
     spec: dict = {"type": "agent_reference", "name": agent_name}
     if agent_version:
         spec["version"] = agent_version

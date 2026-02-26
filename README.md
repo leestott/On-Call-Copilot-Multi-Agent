@@ -1,12 +1,136 @@
-# On-Call Copilot: Multi-Agent Incident Triage and Post-Incident Report
+# On-Call Copilot: Multi-Agent Incident Triage
 
-A developer-ready sample demonstrating **Microsoft Agent Framework** with **Foundry Hosted Agents** and **Model Router**. Four specialist agents run **concurrently** to ingest incident signals (alerts, logs, metrics, runbook excerpts) and return structured triage plus a post-incident report draft, all as validated JSON.
+A developer-ready sample demonstrating **Microsoft Agent Framework** with **Foundry Hosted Agents** and **Model Router**. Four specialist agents run **concurrently** to triage incident signals (alerts, logs, metrics, runbook excerpts) and produce structured JSON output — including root-cause analysis, immediate actions, communications drafts, and a post-incident report.
 
 ![On-Call Copilot UI — results overview](./docs/screenshots/ui_04_results_overview.png)
 
 > **Live demo video:** [docs/demo_ui.mp4](./docs/demo_ui.mp4)
 
-## Architecture
+---
+
+## Quick Start
+
+Get the sample running locally in under 5 minutes.
+
+### 1. Prerequisites
+
+| Tool | Required | Install |
+|------|----------|---------|
+| **Python 3.10+** | Yes | [python.org](https://www.python.org/downloads/) |
+| **Azure CLI** (`az`) | Yes | [Install Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) |
+| **Azure Foundry project** | Yes | [Create a Foundry project](https://learn.microsoft.com/azure/ai-foundry/how-to/create-projects) |
+| **Model Router deployment** | Yes | [Deploy Model Router](https://learn.microsoft.com/azure/ai-foundry/openai/how-to/model-router) |
+| **Docker Desktop** | For deployment only | [docker.com](https://www.docker.com/products/docker-desktop/) |
+
+### 2. Clone and set up
+
+```bash
+git clone https://github.com/Azure-Samples/On-Call-Copilot-Multi-Agent.git
+cd On-Call-Copilot-Multi-Agent
+
+python -m venv .venv
+```
+
+Activate the virtual environment:
+
+```bash
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+
+# Windows cmd
+.venv\Scripts\activate.bat
+
+# Linux / macOS
+source .venv/bin/activate
+```
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+### 3. Configure environment variables
+
+Copy the template and fill in your Azure values:
+
+```bash
+# Linux / macOS
+cp .env.example .env
+
+# Windows
+copy .env.example .env
+```
+
+Open `.env` and set the four required variables:
+
+```dotenv
+AZURE_OPENAI_ENDPOINT=https://<your-resource>.openai.azure.com/
+AZURE_OPENAI_API_KEY=<your-api-key>
+AZURE_OPENAI_CHAT_DEPLOYMENT_NAME=model-router
+AZURE_AI_PROJECT_ENDPOINT=https://<account>.services.ai.azure.com/api/projects/<project>
+```
+
+> **Where to find these values:**
+>
+> | Variable | Location in Azure Portal |
+> |----------|--------------------------|
+> | `AZURE_OPENAI_ENDPOINT` | AI Services resource → Overview → Endpoint |
+> | `AZURE_OPENAI_API_KEY` | AI Services resource → Keys and Endpoint |
+> | `AZURE_OPENAI_CHAT_DEPLOYMENT_NAME` | AI Foundry → Deployments (usually `model-router`) |
+> | `AZURE_AI_PROJECT_ENDPOINT` | AI Foundry → project → Overview → Endpoint |
+>
+> `.env` is in `.gitignore` — your credentials will not be committed.
+
+### 4. Sign in to Azure
+
+```bash
+az login
+```
+
+> If you have multiple subscriptions, select the correct one:
+> ```bash
+> az account set --subscription "<your-subscription-name-or-id>"
+> ```
+
+### 5. Run the agent server
+
+```bash
+python main.py
+# Listening on http://localhost:8088
+```
+
+### 6. Run the browser UI (optional)
+
+In a **second terminal** (with the venv activated):
+
+```bash
+python ui/server.py
+# Opens at http://localhost:7860
+```
+
+The UI lets you load sample incidents, send them to the agent, and view results across all four agent panels.
+
+### 7. Test with a sample incident
+
+```bash
+# curl — send a demo payload
+curl -X POST http://localhost:8088/responses \
+  -H "Content-Type: application/json" \
+  -d @scripts/demos/demo_1_simple_alert.json
+
+# PowerShell
+.\scripts\test_local.ps1 -Demo 1
+
+# Bash
+bash scripts/test_local.sh 1
+```
+
+Or use [scripts/test_local.http](scripts/test_local.http) with the VS Code REST Client extension.
+
+---
+
+## How It Works
 
 ```mermaid
 flowchart TD
@@ -51,152 +175,102 @@ flowchart TD
     style Merge fill:#dce9f5,stroke:#0078d4
 ```
 
-## Excalidraw Architecture Diag
-
 ![Architecture](./docs/On%20Call_docs_architecture.png)
 
----
+### Request flow
 
-Agent Framework https://learn.microsoft.com/agent-framework/
-
-Model Router https://learn.microsoft.com/azure/ai-foundry/openai/how-to/model-router?view=foundry&preserve-view=true
-
-Hosted Agents https://learn.microsoft.com/azure/ai-foundry/agents/concepts/hosted-agents?view=foundry
-
-## UI Screenshots
-
-The project includes a local browser UI (`ui/`) for interactive incident triage. Start it with:
-
-```powershell
-$env:AZURE_AI_PROJECT_ENDPOINT = "https://<account>.services.ai.azure.com/api/projects/<project>"
-$env:AGENT_NAME = "oncall-copilot"
-.\.venv-1\Scripts\python.exe ui\server.py
-# Opens at http://localhost:7860
-```
-
-### Empty state — incident input panel with quick-load presets
-
-![Empty state](./docs/screenshots/ui_01_empty_state.png)
-
-### Quick-load presets — click any button to populate the JSON editor
-
-![Quick load](./docs/screenshots/ui_02_quick_load.png)
-
-### Incident loaded — editable JSON with severity badge and incident preview
-
-![Incident loaded](./docs/screenshots/ui_03_incident_loaded.png)
-
-### Full results — all four agent panels populated after a live invocation
-
-![Results overview](./docs/screenshots/ui_04_results_overview.png)
-
-### Triage panel — root causes with confidence bars and evidence
-
-![Triage panel](./docs/screenshots/ui_05_triage.png)
-
-### Triage panel — immediate actions tab with priority badges
-
-![Triage actions](./docs/screenshots/ui_09_triage_actions.png)
-
-### Summary panel — narrative and ONGOING / RESOLVED status
-
-![Summary panel](./docs/screenshots/ui_06_summary.png)
-
-### Comms panel — Slack card and stakeholder update
-
-![Comms panel](./docs/screenshots/ui_07_comms.png)
-
-### Post-Incident Report — timeline dots and prevention actions
-
-![PIR panel](./docs/screenshots/ui_08_pir.png)
-
-![PIR prevention actions](./docs/screenshots/ui_10_pir_prevention.png)
-
----
+1. **Request arrives** via the Responses API protocol (port 8088)
+2. **Orchestrator** (`OncallCopilotAgent.run()`) receives the incident payload
+3. Four specialist agents are created, each with dedicated instructions from `app/agents/`
+4. All four are invoked **concurrently** via `asyncio.gather()` against Model Router
+5. Each specialist returns a JSON fragment covering its output keys
+6. The orchestrator **merges** all fragments and injects a `telemetry` block
+7. The merged JSON is returned as the response
 
 ### Multi-Agent Design
 
 | Agent | Responsibility | Output Keys |
 |---|---|---|
-| **Triage Agent** | Root cause analysis, immediate actions, missing info, runbook alignment | `suspected_root_causes`, `immediate_actions`, `missing_information`, `runbook_alignment` |
-| **Summary Agent** | Concise incident summary | `summary` |
-| **Comms Agent** | Slack update, stakeholder briefing | `comms` |
-| **PIR Agent** | Post-incident timeline, customer impact, prevention actions | `post_incident_report` |
-
-All four agents run **concurrently** via `asyncio.gather()` inside a custom `OncallCopilotAgent(BaseAgent)` orchestrator. Each specialist returns its own JSON section, which the orchestrator merges into a single structured response with a `telemetry` block.
-
-### How It Works
-
-1. **Request arrives** via the Responses API protocol (port 8088, handled by `azure.ai.agentserver.agentframework.from_agent_framework`)
-2. **Orchestrator** (`OncallCopilotAgent.run()`) receives the incident payload
-3. Four specialist agents are created via `AzureOpenAIChatClient.create_agent()`, each with dedicated instructions from `app/agents/`
-4. All four are invoked **concurrently** via `asyncio.gather()` against Model Router
-5. Each specialist returns a JSON fragment covering its output keys
-6. The orchestrator **merges** all fragments into the unified output schema and injects a `telemetry` block
-7. The merged JSON is returned as the agent response
-
-### Key Dependencies
-
-| Package | Purpose |
-|---|---|
-| `azure-ai-agentserver-agentframework` | Agent Framework hosting adapter + `BaseAgent`, `AzureOpenAIChatClient` |
-| `azure-identity` | `DefaultAzureCredential` → bearer token provider for Azure OpenAI |
-| `azure-ai-projects` | Legacy `AIProjectClient` used by `app/main.py` and `scripts/deploy_sdk.py` |
+| **Triage** | Root cause analysis, immediate actions, missing info, runbook alignment | `suspected_root_causes`, `immediate_actions`, `missing_information`, `runbook_alignment` |
+| **Summary** | Concise incident narrative | `summary` |
+| **Comms** | Slack update, stakeholder briefing | `comms` |
+| **PIR** | Post-incident timeline, customer impact, prevention actions | `post_incident_report` |
 
 ### Why Model Router?
 
-This agent processes prompts of **mixed complexity**:
+Model Router automatically routes each request to the best model based on complexity — no model-selection logic needed in your code:
 
-| Demo Scenario | Complexity | Model Router Benefit |
+| Scenario | Complexity | Routing |
 |---|---|---|
-| Simple alert triage | Low: short context, pattern matching | Routes to a faster/cheaper model |
-| Multi-signal correlation | High: logs + metrics + multiple alerts | Routes to a more capable model |
-| Post-incident synthesis | High: long context, report generation | Routes to a high-capability model |
-
-With Model Router as the **only** deployment, you get cost/latency optimization **without hardcoding model selection** in your code. One deployment name, zero model-selection logic.
+| Simple alert triage | Low | Faster, cheaper model |
+| Multi-signal correlation | High | More capable model |
+| Post-incident synthesis | High | High-capability model |
 
 ---
 
-## Repo Layout
+## Running Modes
 
+### Multi-Agent Mode (default)
+
+Uses the Agent Framework with four concurrent agents. Requires Azure credentials.
+
+```bash
+python main.py
+# http://localhost:8088
 ```
-On Call/
-├── main.py                  # Agent Framework entrypoint (hosted agent)
-├── app/
-│   ├── agents/
-│   │   ├── __init__.py
-│   │   ├── triage.py        # Triage Agent instructions
-│   │   ├── summary.py       # Summary Agent instructions
-│   │   ├── comms.py         # Comms Agent instructions
-│   │   └── pir.py           # PIR Agent instructions
-│   ├── __init__.py
-│   ├── main.py              # FastAPI server (legacy + mock mode)
-│   ├── mock_router.py       # Mock model router for MOCK_MODE validation
-│   ├── prompting.py         # Single-agent system prompt (legacy)
-│   ├── schemas.py           # Input envelope & output JSON schemas
-│   └── telemetry.py         # OpenTelemetry + structured logging
-├── scripts/
-│   ├── demos/               # 3 quick demo payloads (simple alert, multi-signal, post-incident)
-│   ├── scenarios/           # 5 incident scenario JSON payloads
-│   ├── golden_outputs/      # Expected triage responses for schema validation
-│   ├── SCENARIOS.md         # Overview of all demos and scenarios
-│   ├── validate.py          # End-to-end schema validation (MOCK_MODE)
-│   ├── deploy_sdk.py        # Deploy agent to Foundry via Python SDK
-│   ├── invoke.py            # Invoke the deployed Foundry agent
-│   ├── run_scenarios.py     # Batch scenario runner against live Foundry API
-│   ├── verify_agent.py      # Smoke-test the deployed agent
-│   ├── get_logs.py          # Retrieve agent run logs from Foundry
-│   └── test_local.*         # Local test scripts (http/sh/ps1)
-├── infra/
-│   └── main.bicep           # Azure infrastructure definition
-├── agent.yaml               # Hosted Agent definition (multi-agent)
-├── azure.yaml               # azd configuration
-├── Dockerfile               # linux/amd64 container for Foundry
-├── requirements.txt
-├── LICENSE                  # MIT License
-├── SECURITY.md              # Security policy and vulnerability reporting
-├── CONTRIBUTING.md          # Contribution guide
-└── README.md
+
+### Mock Mode (no Azure credentials needed)
+
+Uses the FastAPI server with golden outputs for local schema validation:
+
+```bash
+# Windows PowerShell
+$env:MOCK_MODE="true"; python -m app.main
+
+# Linux / macOS
+MOCK_MODE=true python -m app.main
+```
+
+### Validate All Scenarios (Mock Mode)
+
+```bash
+python scripts/validate.py                # all 5 scenarios
+python scripts/validate.py --scenario 2   # single scenario
+```
+
+---
+
+## Scenarios and Demos
+
+### Demo Payloads
+
+| # | File | Description |
+|---|------|-------------|
+| 1 | `scripts/demos/demo_1_simple_alert.json` | Single 5xx alert — quick triage |
+| 2 | `scripts/demos/demo_2_multi_signal.json` | 3 alerts + logs + metrics — multi-signal correlation |
+| 3 | `scripts/demos/demo_3_post_incident.json` | Resolved SEV1 TLS cert expiry — full PIR synthesis |
+
+### Scenario Payloads
+
+| # | File | Severity | Description |
+|---|------|----------|-------------|
+| 1 | [scenario_1_redis_outage.json](scripts/scenarios/scenario_1_redis_outage.json) | SEV2 | Redis cache cluster unresponsive |
+| 2 | [scenario_2_aks_scaling.json](scripts/scenarios/scenario_2_aks_scaling.json) | SEV1 | Kubernetes node pool scaling failure |
+| 3 | [scenario_3_dns_cascade.json](scripts/scenarios/scenario_3_dns_cascade.json) | SEV1 | DNS resolution failures cascading |
+| 4 | [scenario_4_minimal_alert.json](scripts/scenarios/scenario_4_minimal_alert.json) | SEV4 | Minimal CPU alert on staging |
+| 5 | [scenario_5_storage_throttle_pir.json](scripts/scenarios/scenario_5_storage_throttle_pir.json) | SEV2 | Storage throttling — post-incident review |
+
+### Running scenarios against a deployed agent
+
+```bash
+python scripts/invoke.py                                         # default prompt
+python scripts/invoke.py --demo 1                                # built-in demo
+python scripts/invoke.py --scenario 2                            # built-in scenario
+python scripts/invoke.py --prompt "db connection pool exhausted"  # custom prompt
+
+python scripts/run_scenarios.py            # all scenarios
+python scripts/run_scenarios.py --list     # list available
+python scripts/run_scenarios.py --scenario 3  # single scenario
 ```
 
 ---
@@ -229,7 +303,7 @@ On Call/
 }
 ```
 
-### Output Schema (top-level keys)
+### Output Schema
 
 ```json
 {
@@ -244,358 +318,188 @@ On Call/
 }
 ```
 
-### Request to the agent (POST /responses)
-
-Send the incident envelope directly as the JSON body:
-
-```bash
-curl -X POST http://localhost:8088/responses \
-  -H "Content-Type: application/json" \
-  -d @scripts/demos/demo_1_simple_alert.json
-```
-
 ---
 
-## Local Development
-
-### Prerequisites
-
-- Python 3.10+
-- Docker Desktop (for containerized testing)
-- A Microsoft Foundry project with Model Router deployed (for live mode)
-- `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_CHAT_DEPLOYMENT_NAME` env vars set (for live mode)
-- VSCode + Foundry Extension
-
-### Run: Multi-Agent Mode (Agent Framework, requires Azure credentials)
-
-This is the primary entrypoint. It starts the `OncallCopilotAgent` orchestrator via the Agent Framework hosting adapter on port 8088.
-
-```bash
-# 1. Create virtual environment
-python -m venv .venv
-# Windows:  .venv\Scripts\activate
-# Linux/Mac: source .venv/bin/activate
-
-# 2. Install dependencies
-pip install -r requirements.txt
-
-# 3. Set environment variables
-# Windows PowerShell:
-$env:AZURE_OPENAI_ENDPOINT="https://<account>.openai.azure.com/"
-$env:AZURE_OPENAI_CHAT_DEPLOYMENT_NAME="model-router"
-
-# Bash:
-export AZURE_OPENAI_ENDPOINT="https://<account>.openai.azure.com/"
-export AZURE_OPENAI_CHAT_DEPLOYMENT_NAME="model-router"
-
-# 4. Start the multi-agent server
-python main.py
-# Hosting adapter listening on http://localhost:8088
-```
-
-### Run: Legacy/Mock Mode (FastAPI, no Azure credentials needed)
-
-The FastAPI server in `app/main.py` supports `MOCK_MODE` for local validation without Azure. It uses the single-agent prompt and golden outputs.
-
-```bash
-# Start server with mock golden responses
-# Windows PowerShell:
-$env:MOCK_MODE="true"
-python -m app.main
-
-# Bash:
-MOCK_MODE=true python -m app.main
-```
-
-### Validate All Scenarios (Mock Mode)
-
-```bash
-# Starts server automatically, sends all 5 scenarios, validates output schemas
-python scripts/validate.py
-
-# Run a specific scenario only
-python scripts/validate.py --scenario 2
-```
-
-### Invoke the Deployed Agent (Live Mode)
-
-```bash
-# Set required env vars first (see Environment Variables table above)
-
-# Send the default CPU alert prompt
-python scripts/invoke.py
-
-# Send a custom prompt
-python scripts/invoke.py --prompt "db connection pool exhausted on orders-db-primary"
-
-# Send one of the built-in demos
-python scripts/invoke.py --demo 1
-python scripts/invoke.py --demo 2
-
-# Send one of the built-in scenarios
-python scripts/invoke.py --scenario 2
-```
-
-### Run All Scenarios Against Live Foundry API
-
-```bash
-# Run all 5 scenarios and validate output structure
-python scripts/run_scenarios.py
-
-# Run a single scenario
-python scripts/run_scenarios.py --scenario 3
-
-# List available scenarios
-python scripts/run_scenarios.py --list
-```
-
-#### Scenario Files
-
-Each scenario is a self-contained JSON file. To try a scenario in the **Foundry Agent Playground**, open the file, copy the full JSON, and paste it into the chat input.
-
-| # | File | Severity | Description |
-|---|------|----------|-------------|
-| 1 | [scenario_1_redis_outage.json](scripts/scenarios/scenario_1_redis_outage.json) | SEV2 | Redis cache cluster unresponsive, session service returning 503s |
-| 2 | [scenario_2_aks_scaling.json](scripts/scenarios/scenario_2_aks_scaling.json) | SEV1 | Kubernetes node pool scaling failure, pod scheduling backlog |
-| 3 | [scenario_3_dns_cascade.json](scripts/scenarios/scenario_3_dns_cascade.json) | SEV1 | DNS resolution failures causing cascading microservice timeouts |
-| 4 | [scenario_4_minimal_alert.json](scripts/scenarios/scenario_4_minimal_alert.json) | SEV4 | Minimal CPU alert on staging batch processor |
-| 5 | [scenario_5_storage_throttle_pir.json](scripts/scenarios/scenario_5_storage_throttle_pir.json) | SEV2 | Resolved: storage throttling caused image upload failures (post-incident review) |
-
-### Verify the Deployed Agent Health
-
-```bash
-python scripts/verify_agent.py
-```
-
-### Test (Manual)
-
-```bash
-# Bash
-bash scripts/test_local.sh 1   # simple alert
-bash scripts/test_local.sh 2   # multi-signal
-bash scripts/test_local.sh 3   # post-incident
-
-# PowerShell
-.\scripts\test_local.ps1 -Demo 1
-```
-
-Or use the [test_local.http](scripts/test_local.http) file with the VS Code REST Client extension.
-
----
-
-## Deploy to Foundry Agent Service
+## Deploy to Azure Foundry
 
 > Ref: [Deploy a hosted agent](https://learn.microsoft.com/azure/ai-foundry/agents/how-to/deploy-hosted-agent?view=foundry&tabs=bash)
 
-### Prerequisites
+### Deploy prerequisites
 
-- Azure CLI 2.80+ and Azure Developer CLI (azd) 1.23.0+
+- Azure CLI 2.80+ and Azure Developer CLI (`azd`) 1.23.0+
 - Docker Desktop
-- A Microsoft Foundry project
-- Required permissions (see [docs](https://learn.microsoft.com/azure/ai-foundry/agents/how-to/deploy-hosted-agent?view=foundry&tabs=bash#prerequisites))
+- A Microsoft Foundry project with required permissions ([details](https://learn.microsoft.com/azure/ai-foundry/agents/how-to/deploy-hosted-agent?view=foundry&tabs=bash#prerequisites))
 
-### Option A: Azure Developer CLI (fastest path)
+### Option A: Azure Developer CLI (fastest)
 
 ```bash
-# 1. Initialize project from starter template (first time)
 azd init -t https://github.com/Azure-Samples/azd-ai-starter-basic
-
-# Or, if you have an existing Foundry project:
-azd ai agent init --project-id /subscriptions/<SUB_ID>/resourceGroups/<RG>/providers/Microsoft.CognitiveServices/accounts/<ACCOUNT>/projects/<PROJECT>
-
-# 2. Point azd at the agent.yaml
 azd ai agent init -m agent.yaml
-
-# 3. Deploy (builds container, pushes to ACR, creates Hosted Agent)
 azd up
+```
 
-# 4. Verify deployment
+Verify:
+
+```bash
 az cognitiveservices agent show \
     --account-name <your-account-name> \
     --project-name <your-project-name> \
     --name oncall-copilot
-# Success: status = "Started"
-
-# 5. Clean up when done
-azd down
 ```
+
+Clean up: `azd down`
 
 ### Option B: Python SDK (CI/CD integration)
 
 ```bash
-# 1. Build Docker image (must be linux/amd64 for Foundry)
+# 1. Build and push container image
 docker build --platform linux/amd64 -t oncall-copilot:v1 .
-
-# 2. Push to Azure Container Registry
 az acr login --name <your-registry>
 docker tag oncall-copilot:v1 <your-registry>.azurecr.io/oncall-copilot:v1
 docker push <your-registry>.azurecr.io/oncall-copilot:v1
 
-# 3. Grant project managed identity access to pull images
-#    In Azure Portal → Foundry project → Identity → copy Object (principal) ID
-#    Assign "Container Registry Repository Reader" role on your ACR
+# 2. Grant project managed identity "Container Registry Repository Reader" on your ACR
 
-# 4. Create account-level capability host (one-time setup)
-az rest --method put \
-    --url "https://management.azure.com/subscriptions/<SUB_ID>/resourceGroups/<RG>/providers/Microsoft.CognitiveServices/accounts/<ACCOUNT>/capabilityHosts/accountcaphost?api-version=2025-10-01-preview" \
-    --headers "content-type=application/json" \
-    --body '{
-        "properties": {
-            "capabilityHostKind": "Agents",
-            "enablePublicHostingEnvironment": true
-        }
-    }'
-
-# 5. Deploy using the SDK script
-export AZURE_AI_PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
+# 3. Deploy
 export ACR_IMAGE="<your-registry>.azurecr.io/oncall-copilot:v1"
-export MODEL_ROUTER_DEPLOYMENT="model-router"
-
 python scripts/deploy_sdk.py
 
-# 6. Verify
-az cognitiveservices agent show \
-    --account-name <your-account-name> \
-    --project-name <your-project-name> \
-    --name oncall-copilot
+# 4. Verify
+python scripts/verify_agent.py
 
-# 7. Clean up
+# Clean up
 python scripts/deploy_sdk.py --delete
 ```
 
-### Environment Variables
+---
+
+## Using the Foundry Agent Playground (VS Code)
+
+1. Install the **Microsoft Foundry** extension (Extensions view → search "Microsoft Foundry" → Install)
+2. Open Command Palette (`Ctrl+Shift+P`) → **Microsoft Foundry: Set Default Project**
+3. Sign in and select your subscription, resource group, and Foundry project
+4. Open any demo/scenario JSON file, copy the contents, and paste into the Foundry Agent Playground chat
+
+![Foundry Extension Playground](./docs/screenshots/ui_foundryext_playground.png)
+
+---
+
+## UI Screenshots
+
+<details>
+<summary>Click to expand UI screenshots</summary>
+
+### Empty state — incident input panel with quick-load presets
+
+![Empty state](./docs/screenshots/ui_01_empty_state.png)
+
+### Quick-load presets
+
+![Quick load](./docs/screenshots/ui_02_quick_load.png)
+
+### Incident loaded — editable JSON with severity badge
+
+![Incident loaded](./docs/screenshots/ui_03_incident_loaded.png)
+
+### Full results — all four agent panels
+
+![Results overview](./docs/screenshots/ui_04_results_overview.png)
+
+### Triage — root causes with confidence bars
+
+![Triage panel](./docs/screenshots/ui_05_triage.png)
+
+### Triage — immediate actions
+
+![Triage actions](./docs/screenshots/ui_09_triage_actions.png)
+
+### Summary — narrative and status
+
+![Summary panel](./docs/screenshots/ui_06_summary.png)
+
+### Comms — Slack card and stakeholder update
+
+![Comms panel](./docs/screenshots/ui_07_comms.png)
+
+### Post-Incident Report — timeline and prevention actions
+
+![PIR panel](./docs/screenshots/ui_08_pir.png)
+
+![PIR prevention actions](./docs/screenshots/ui_10_pir_prevention.png)
+
+</details>
+
+---
+
+## Environment Variables
 
 | Variable | Required | Description |
 |---|---|---|
-| `AZURE_OPENAI_ENDPOINT` | Yes | Azure OpenAI endpoint used by Agent Framework `AzureOpenAIChatClient` |
+| `AZURE_OPENAI_ENDPOINT` | Yes | Azure OpenAI / AI Services endpoint |
+| `AZURE_OPENAI_API_KEY` | Yes | API key (Azure Portal → Keys and Endpoint) |
 | `AZURE_OPENAI_CHAT_DEPLOYMENT_NAME` | Yes | Model Router deployment name (e.g. `model-router`) |
-| `AZURE_AI_PROJECT_ENDPOINT` | Yes | Foundry project endpoint URL (`https://<account>.services.ai.azure.com/api/projects/<project>`) |
-| `AGENT_NAME` | No | Agent name to target for SDK scripts (default: `oncall-copilot`) |
-| `AGENT_VERSION` | No | Agent version to target for SDK scripts (default: `latest`) |
-| `MODEL_ROUTER_DEPLOYMENT` | No | Alias for deployment name (legacy FastAPI mode) |
-| `ACR_IMAGE` | No | ACR image URI used by `deploy_sdk.py` (e.g. `myregistry.azurecr.io/oncall-copilot:v1`) |
-| `MOCK_MODE` | No | Set to `true` for local validation without Azure (legacy mode only) |
+| `AZURE_AI_PROJECT_ENDPOINT` | Yes | Foundry project endpoint (`https://<account>.services.ai.azure.com/api/projects/<project>`) |
+| `AGENT_NAME` | No | Agent name for SDK scripts (default: `oncall-copilot`) |
+| `AGENT_VERSION` | No | Agent version for SDK scripts (default: `latest`) |
+| `ACR_IMAGE` | No | ACR image URI for `deploy_sdk.py` |
+| `MOCK_MODE` | No | Set to `true` for mock validation without Azure |
 | `LOG_LEVEL` | No | Logging level (default: `INFO`) |
 
 ---
 
-## Demo Script
+## Repo Layout
 
-Using the Foundry Extension for VSCode and the intergrated playground 
-
-Install the Microsoft Foundry Extension 
-Open VS Code. 
-Go to the Extensions view (Ctrl+Shift+X / Cmd+Shift+X). 
-Search for "Microsoft Foundry". 
-Click Install. 
-
-The extension icon should appear in the Activity Bar (left sidebar). 
-
-Set Your Default Foundry Project 
-
-Open the Command Palette (Ctrl+Shift+P / Cmd+Shift+P). 
-
-Run: `Microsoft Foundry: Set Default Project`. 
-
-Sign in to your Azure account if prompted. 
-
-Select your subscription, resource group, and Foundry project. 
-
-![VScodeFoundry Extension](./docs/screenshots/ui_foundryext_playground.png)
-
-### Demo 1: Simple Alert (Quick Triage)
-
-**Payload file:** [scripts/demos/demo_1_simple_alert.json](scripts/demos/demo_1_simple_alert.json)
-
-> **Agent playground:** Open the file, copy the full JSON, and paste it directly into the chat input in the Foundry Agent Playground.
-
-**Input:** Single 5xx-rate alert, one metric, runbook excerpt. Minimal context.
-
-**Model Router value:** Low complexity → routes to a fast, cost-efficient model.
-
-**Expected output shape:**
-```json
-{
-  "summary": { "what_happened": "...", "current_status": "..." },
-  "suspected_root_causes": [{ "hypothesis": "...", "evidence": ["..."], "confidence": 0.6 }],
-  "immediate_actions": [{ "step": "Check API GW dashboard", "owner_role": "oncall-eng", "priority": "P1" }],
-  "missing_information": [{ "question": "Are downstream services healthy?", "why_it_matters": "..." }],
-  "runbook_alignment": { "matched_steps": ["Step 1"], "gaps": ["No step for rollback"] },
-  "comms": { "slack_update": "...", "stakeholder_update": "..." },
-  "post_incident_report": { "timeline": [...], "customer_impact": "...", "prevention_actions": [...] },
-  "telemetry": { "correlation_id": "...", "model_router_deployment": "model-router", ... }
-}
+```
+On-Call-Copilot-Multi-Agent/
+├── main.py                  # Agent Framework entrypoint (hosted agent)
+├── agent.yaml               # Hosted Agent definition
+├── azure.yaml               # azd configuration
+├── Dockerfile               # linux/amd64 container for Foundry
+├── requirements.txt
+├── .env.example             # Environment variable template → copy to .env
+├── app/
+│   ├── agents/
+│   │   ├── triage.py        # Triage Agent instructions
+│   │   ├── summary.py       # Summary Agent instructions
+│   │   ├── comms.py         # Comms Agent instructions
+│   │   └── pir.py           # PIR Agent instructions
+│   ├── main.py              # FastAPI server (mock mode)
+│   ├── mock_router.py       # Mock model router for validation
+│   ├── schemas.py           # Input/output JSON schemas
+│   └── telemetry.py         # OpenTelemetry + structured logging
+├── scripts/
+│   ├── demos/               # 3 demo payloads
+│   ├── scenarios/           # 5 incident scenarios
+│   ├── golden_outputs/      # Expected outputs for schema validation
+│   ├── validate.py          # Schema validation (mock mode)
+│   ├── deploy_sdk.py        # Deploy agent via Python SDK
+│   ├── invoke.py            # Invoke deployed agent
+│   ├── run_scenarios.py     # Batch scenario runner
+│   ├── verify_agent.py      # Deployment health check
+│   └── test_local.*         # Local test scripts (http/sh/ps1)
+├── ui/
+│   ├── index.html           # Browser UI
+│   └── server.py            # UI server (port 7860)
+├── infra/
+│   └── main.bicep           # Azure infrastructure (Bicep)
+└── docs/                    # Architecture diagrams, screenshots, blog post
 ```
 
-### Demo 2: Multi-Signal Incident (Logs and Metrics Correlation)
+---
 
-**Payload file:** [scripts/demos/demo_2_multi_signal.json](scripts/demos/demo_2_multi_signal.json)
+## Key Dependencies
 
-> **Agent playground:** Open the file, copy the full JSON, and paste it directly into the chat input in the Foundry Agent Playground.
+| Package | Purpose |
+|---|---|
+| `azure-ai-agentserver-agentframework` | Agent Framework hosting + `BaseAgent`, `AzureOpenAIChatClient` |
+| `azure-identity` | `DefaultAzureCredential` for Azure OpenAI bearer tokens |
+| `python-dotenv` | Auto-load `.env` file at startup |
 
-**Input:** 3 alerts, 2 log sources, 3 metrics, detailed runbook. DB connection pool exhaustion + OOM.
+### Learn More
 
-**Model Router value:** High complexity, multi-source correlation → routes to a highly capable model.
-
-**Expected output shape:**
-```json
-{
-  "summary": { "what_happened": "...", "current_status": "..." },
-  "suspected_root_causes": [
-    { "hypothesis": "DB connection pool exhaustion", "evidence": ["...","..."], "confidence": 0.85 },
-    { "hypothesis": "Memory leak in order-worker", "evidence": ["..."], "confidence": 0.7 }
-  ],
-  "immediate_actions": [
-    { "step": "Scale DB max_connections", "owner_role": "dba", "priority": "P0" },
-    { "step": "Restart order-worker pods", "owner_role": "oncall-eng", "priority": "P0" },
-    { "step": "Enable read replica failover", "owner_role": "dba", "priority": "P1" }
-  ],
-  "missing_information": [...],
-  "runbook_alignment": { "matched_steps": ["Step 1","Step 2","Step 3"], "gaps": [...] },
-  "comms": { "slack_update": "...", "stakeholder_update": "..." },
-  "post_incident_report": { "timeline": [...], "customer_impact": "...", "prevention_actions": [...] },
-  "telemetry": { ... }
-}
-```
-
-### Demo 3: Post-Incident Report Synthesis
-
-**Payload file:** [scripts/demos/demo_3_post_incident.json](scripts/demos/demo_3_post_incident.json)
-
-> **Agent playground:** Open the file, copy the full JSON, and paste it directly into the chat input in the Foundry Agent Playground.
-
-**Input:** Resolved SEV1 (TLS cert expiry), 4 alerts, 2 log sources, 4 metrics including revenue impact. Full timeline.
-
-**Model Router value:** Long context, narrative synthesis → routes to a high-capability model.
-
-**Expected output shape:**
-```json
-{
-  "summary": { "what_happened": "...", "current_status": "Resolved" },
-  "suspected_root_causes": [
-    { "hypothesis": "Expired TLS certificate for *.auth.contoso.com", "evidence": ["...","...","..."], "confidence": 0.98 }
-  ],
-  "immediate_actions": [
-    { "step": "Implement automated cert renewal monitoring", "owner_role": "platform-eng", "priority": "P1" }
-  ],
-  "missing_information": [
-    { "question": "Why was cert expiry not caught by monitoring?", "why_it_matters": "..." }
-  ],
-  "runbook_alignment": { "matched_steps": ["Step 1","Step 2","Step 3","Step 4"], "gaps": ["Automated cert renewal"] },
-  "comms": { "slack_update": "...", "stakeholder_update": "..." },
-  "post_incident_report": {
-    "timeline": [
-      { "time": "14:00Z", "event": "TLS cert expired" },
-      { "time": "14:02Z", "event": "Auth failure alerts fired" },
-      { "time": "14:45Z", "event": "Emergency cert rotation initiated" },
-      { "time": "16:35Z", "event": "Full recovery confirmed" }
-    ],
-    "customer_impact": "~2.5 hours of auth failures, est. $340k lost transactions",
-    "prevention_actions": ["Automated cert renewal", "Cert expiry alerting at 30/14/7 days", "..."]
-  },
-  "telemetry": { ... }
-}
-```
+- [Microsoft Agent Framework](https://learn.microsoft.com/agent-framework/)
+- [Model Router](https://learn.microsoft.com/azure/ai-foundry/openai/how-to/model-router)
+- [Hosted Agents](https://learn.microsoft.com/azure/ai-foundry/agents/concepts/hosted-agents)
 
 ---
 
@@ -603,19 +507,17 @@ Select your subscription, resource group, and Foundry project.
 
 | Signal | Implementation |
 |---|---|
-| **Structured logs** | JSON-formatted via Python `logging`; every request logs `correlation_id`, `incident_id`, `severity` |
-| **Correlation IDs** | UUID generated per request, returned in `X-Correlation-ID` header and in output `telemetry` block |
+| **Structured logs** | JSON via Python `logging`; each request logs `correlation_id`, `incident_id`, `severity` |
+| **Correlation IDs** | UUID per request, in `X-Correlation-ID` header and output `telemetry` block |
 | **OTel spans** | Spans around `handle_responses`, `validate_input`, `call_model_router`, `validate_output` |
-| **OTLP export** | Set `OTEL_EXPORTER_OTLP_ENDPOINT` to ship traces to Jaeger, Azure Monitor, etc. |
+| **OTLP export** | Set `OTEL_EXPORTER_OTLP_ENDPOINT` to ship traces to Jaeger / Azure Monitor |
 
 ## Guardrails
 
-- **Secret redaction**: regex-based scrubbing of credential-like patterns before they reach the model
-- **No sensitive data in logs**: startup logs print only safe configuration values; managed identity secrets (`MSI_SECRET`, `IDENTITY_ENDPOINT`) are never written to output
-- **No hallucination**: system prompt instructs the model to set `confidence: 0` and populate `missing_information` when data is insufficient
-- **Mark unknowns**: uses literal `"UNKNOWN"` for undeterminable fields
-- **JSON-only output**: `response_format: json_object` with schema validation and fallback
-- **Diagnostic suggestions**: when data is sparse, `immediate_actions` includes diagnostic steps
+- **Secret redaction** — regex-based scrubbing of credential patterns before they reach the model
+- **No hallucination** — system prompt sets `confidence: 0` and populates `missing_information` when data is insufficient
+- **JSON-only output** — `response_format: json_object` with schema validation and fallback
+- **Unknowns marked** — literal `"UNKNOWN"` for undeterminable fields
 
 ---
 
@@ -628,15 +530,15 @@ Select your subscription, resource group, and Foundry project.
 | `UnauthorizedAcrPull` | 403 | Assign `Container Registry Repository Reader` to project identity |
 | `AcrImageNotFound` | 404 | Correct image name/tag or push image to ACR |
 | `RegistryNotFound` | 400/404 | Fix registry DNS or network reachability |
-| Gateway returns 400 "ID cannot be null" | 400 | Foundry gateway rejects prompts that match `"Title: CapName."` (capital name + trailing period). Use lowercase names without a trailing period in incident prompts. |
+| Gateway 400 "ID cannot be null" | 400 | Avoid `"Title: CapName."` pattern in prompts |
 
-For 5xx errors during deployment, contact Microsoft support. For local validation issues, run `python scripts/validate.py` with `MOCK_MODE=true`.
+For local validation issues, run `python scripts/validate.py` with `MOCK_MODE=true`.
 
 ---
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, code style guidelines, how to add new scenarios and agents, and the pull request checklist.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, code style guidelines, and the PR checklist.
 
 ## Security
 
@@ -644,4 +546,4 @@ See [SECURITY.md](SECURITY.md) for the security policy and how to report a vulne
 
 ## License
 
-MIT; see [LICENSE](LICENSE) for details.
+MIT — see [LICENSE](LICENSE).

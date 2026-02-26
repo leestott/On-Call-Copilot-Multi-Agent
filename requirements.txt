@@ -1,5 +1,7 @@
 # On-Call Copilot – matches official foundry-samples pattern
 # Ref: github.com/microsoft-foundry/foundry-samples/.../agents-in-workflow/requirements.txt
-azure-ai-agentserver-agentframework==1.0.0b12
+azure-ai-agentserver-agentframework==1.0.0b14
 agent-dev-cli
 debugpy
+python-dotenv
+requests
