@@ -49,7 +49,7 @@ On-Call Copilot runs as a single container that hosts four specialist agents (Tr
 │  └───────────────────────────────────────────────────┘  │
 │                          │                              │
 │                          ▼                              │
-│              Azure OpenAI Model Router                  │
+│              Microsoft Foundry Model Router                  │
 │              (single deployment)                        │
 └─────────────────────────────────────────────────────────┘
 ```

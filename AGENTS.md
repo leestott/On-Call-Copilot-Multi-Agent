@@ -6,7 +6,7 @@ This document describes the multi-agent architecture of On-Call Copilot: how the
 
 ## Overview
 
-On-Call Copilot uses **four specialist agents** running **concurrently** via `ConcurrentBuilder` from the Microsoft Agent Framework. Each agent receives the full incident payload, processes it through Azure OpenAI Model Router, and returns a JSON fragment covering its designated output keys. The orchestrator merges all fragments into a single unified response.
+On-Call Copilot uses **four specialist agents** running **concurrently** via `ConcurrentBuilder` from the Microsoft Agent Framework. Each agent receives the full incident payload, processes it through Microsoft Foundry Model Router, and returns a JSON fragment covering its designated output keys. The orchestrator merges all fragments into a single unified response.
 
 ```
                          Incident JSON

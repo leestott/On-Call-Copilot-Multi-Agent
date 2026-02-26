@@ -150,7 +150,7 @@ flowchart TD
         Merge["Merge JSON fragments<br/>+ inject telemetry block"]
     end
 
-    ModelRouter["Azure OpenAI Model Router<br/>(single deployment -<br/>routes to best model<br/>per request complexity)"]
+    ModelRouter["Microsoft Foundry Model Router<br/>(single deployment -<br/>routes to best model<br/>per request complexity)"]
 
     Client -->|"POST /responses (incident JSON)"| Orchestrator
     Orchestrator --> Concurrent
