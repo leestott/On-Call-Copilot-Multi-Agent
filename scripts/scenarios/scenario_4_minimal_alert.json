@@ -13,7 +13,13 @@
       "timestamp": "2026-02-17T11:00:00Z"
     }
   ],
-  "logs": [],
+  "logs": [
+    {
+      "timestamp": "2026-02-17T11:02:00Z",
+      "source": "batch-processor-staging",
+      "message": "CPU utilization at 89%, above threshold of 85%"
+    }
+  ],
   "metrics": [
     {
       "name": "cpu_utilization_pct",
@@ -21,7 +27,7 @@
       "values_summary": "Sustained at 87-91% since 10:50Z"
     }
   ],
-  "runbook_excerpt": "",
+  "runbook_excerpt": "Check CPU on batch-processor-staging. If sustained above 90%, restart the pod.",
   "constraints": {
     "max_time_minutes": 30,
     "environment": "staging",

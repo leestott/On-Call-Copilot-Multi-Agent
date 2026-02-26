@@ -13,7 +13,7 @@ Each file is a self-contained JSON payload matching the [input envelope schema](
 | 1 | [scenario_1_redis_outage.json](scenario_1_redis_outage.json) | SEV2 | Active | 2 | 2 | 3 | Redis cache cluster unresponsive, session service returning 503s |
 | 2 | [scenario_2_aks_scaling.json](scenario_2_aks_scaling.json) | SEV1 | Active | 4 | 3 | 4 | AKS node pool scaling failure, 47 pods pending, P95 latency 8s |
 | 3 | [scenario_3_dns_cascade.json](scenario_3_dns_cascade.json) | SEV1 | Active | 3 | 2 | 4 | CoreDNS 40% SERVFAIL causing cascading microservice timeouts |
-| 4 | [scenario_4_minimal_alert.json](scenario_4_minimal_alert.json) | SEV4 | Active | 1 | 0 | 1 | Sparse CPU alert on staging — tests low-confidence / high missing-info output |
+| 4 | [scenario_4_minimal_alert.json](scenario_4_minimal_alert.json) | SEV4 | Active | 1 | 1 | 1 | Minimal CPU alert on staging — tests low-confidence / high missing-info output |
 | 5 | [scenario_5_storage_throttle_pir.json](scenario_5_storage_throttle_pir.json) | SEV2 | Resolved | 4 | 3 | 5 | Storage throttling caused image upload failures — post-incident review |
 
 ---
@@ -59,7 +59,7 @@ curl -X POST http://localhost:8088/responses \
 | 1 — Redis | Multi-alert + near-maxmemory metric; expects redis sentinel failover steps in `immediate_actions` |
 | 2 — AKS | 4 alerts across 3 log sources; expects root cause to identify AZ capacity exhaustion; complex `runbook_alignment` |
 | 3 — DNS | 15-minute constraint; expects CoreDNS + Azure DNS resolver steps; business impact (oversold inventory) in logs |
-| 4 — Minimal | No logs, no runbook, SEV4 staging; expects high `missing_information` count and `confidence < 0.5` |
+| 4 — Minimal | Minimal logs and runbook, SEV4 staging; expects high `missing_information` count and `confidence < 0.5` |
 | 5 — Storage PIR | Resolved incident; expects full `post_incident_report.timeline`, CDN secondary impact noted, rate-limiter in `prevention_actions` |
 
 ---

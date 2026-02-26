@@ -148,16 +148,29 @@ Scenario files live in `scripts/scenarios/` and are plain JSON matching the form
 
     ```json
     {
-      "incident_id": "INC-9999",
-      "title": "...",
-      "description": "...",
-      "severity": "P2",
-      "affected_systems": ["service-a", "service-b"],
-      "on_call_engineer": "on-call engineer"
+      "incident_id": "INC-2026-NNNN",
+      "title": "Short description of the incident",
+      "severity": "SEV1",
+      "timeframe": { "start": "2026-03-01T10:00:00Z", "end": null },
+      "alerts": [
+        { "name": "AlertName", "description": "...", "timestamp": "..." }
+      ],
+      "logs": [
+        { "source": "service-name", "lines": ["ERROR ..."] }
+      ],
+      "metrics": [
+        { "name": "metric_name", "window": "5m", "values_summary": "..." }
+      ],
+      "runbook_excerpt": "Step 1: ...",
+      "constraints": {
+        "max_time_minutes": 15,
+        "environment": "production",
+        "region": "eastus2"
+      }
     }
     ```
 
-2. Optionally add a matching golden output to `scripts/golden_outputs/golden_<N>_<description>.json` for validation.
+2. Optionally add a matching golden output to `scripts/golden_outputs/INC-2026-NNNN.json` for validation.
 
 3. Run `python scripts/run_scenarios.py --list` to confirm it is discovered.
 

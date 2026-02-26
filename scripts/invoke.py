@@ -72,8 +72,22 @@ def invoke(endpoint: str, agent_name: str, agent_version: str, content: str,
     agent_spec: dict = {"type": "agent_reference", "name": agent_name}
     if agent_version:
         agent_spec["version"] = agent_version
+
+    # Prefix raw JSON with an instruction so the Responses API doesn't reject
+    # minimal payloads with "ID cannot be null or empty".
+    user_message = content
+    try:
+        json.loads(content)
+        user_message = (
+            "Analyze the following incident data and provide triage, "
+            "summary, communications, and a post-incident report:\n\n"
+            + content
+        )
+    except (json.JSONDecodeError, ValueError):
+        pass
+
     body = {
-        "input": [{"role": "user", "content": content}],
+        "input": [{"role": "user", "content": user_message}],
         "agent": agent_spec,
     }
 

@@ -4,7 +4,7 @@ On-Call Copilot local UI server.
 
 Usage:
     set AZURE_AI_PROJECT_ENDPOINT=https://...
-    .venv\Scripts\python.exe ui\server.py
+    .venv\\Scripts\\python.exe ui\\server.py
 
 Opens at http://localhost:7860
 """
@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -83,8 +84,22 @@ def _invoke_agent(content: str) -> dict:
     if agent_version:
         spec["version"] = agent_version
 
+    # Prefix raw JSON with an instruction so the Responses API doesn't reject
+    # minimal payloads with "ID cannot be null or empty".
+    user_message = content
+    try:
+        json.loads(content)
+        # Content is raw JSON — wrap with instruction
+        user_message = (
+            "Please analyze the following incident data and provide "
+            "triage, summary, communications, and a post-incident "
+            "report:\n\n" + content
+        )
+    except (json.JSONDecodeError, ValueError):
+        pass  # Not JSON, send as-is
+
     body = {
-        "input": [{"role": "user", "content": content}],
+        "input": [{"role": "user", "content": user_message}],
         "agent": spec,
     }
 
@@ -107,6 +122,8 @@ def _invoke_agent(content: str) -> dict:
     for output in raw.get("output", []):
         for c in output.get("content", []):
             text = c.get("text", "").strip()
+            # Strip markdown code-block fences that agents sometimes add
+            text = re.sub(r'```(?:json)?\s*', '', text)
             pos  = 0
             while pos < len(text):
                 while pos < len(text) and text[pos] in " \t\n\r":
@@ -117,9 +134,9 @@ def _invoke_agent(content: str) -> dict:
                     obj, end = decoder.raw_decode(text, pos)
                     if isinstance(obj, dict):
                         merged.update(obj)
-                    pos += end - pos
+                    pos = end
                 except json.JSONDecodeError:
-                    break
+                    pos += 1  # skip non-JSON character and keep scanning
 
     return {
         "http_status": r.status_code,

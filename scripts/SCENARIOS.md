@@ -234,8 +234,9 @@ python scripts/invoke.py --scenario 3
 
 **Signals summary:**
 - Alert: `HighCPU-batch-processor-staging` (85% CPU for 10 minutes)
+- Log: `batch-processor-staging` (CPU at 89%, above threshold)
 - Metric: `cpu_utilization` 87–91% since 10:50Z
-- No log sources, no runbook
+- Runbook: Check CPU, restart pod if sustained above 90%
 
 **What to look for in the output:**
 - `missing_information` should be extensive (no logs, no runbook, minimal context)
@@ -295,7 +296,7 @@ python scripts/invoke.py --scenario 5
 | S1 | [`scenarios/scenario_1_redis_outage.json`](scenarios/scenario_1_redis_outage.json) | Scenario | SEV2 | Active | 2 | 2 | 3 |
 | S2 | [`scenarios/scenario_2_aks_scaling.json`](scenarios/scenario_2_aks_scaling.json) | Scenario | SEV1 | Active | 4 | 3 | 4 |
 | S3 | [`scenarios/scenario_3_dns_cascade.json`](scenarios/scenario_3_dns_cascade.json) | Scenario | SEV1 | Active | 3 | 2 | 4 |
-| S4 | [`scenarios/scenario_4_minimal_alert.json`](scenarios/scenario_4_minimal_alert.json) | Scenario | SEV4 | Active | 1 | 0 | 1 |
+| S4 | [`scenarios/scenario_4_minimal_alert.json`](scenarios/scenario_4_minimal_alert.json) | Scenario | SEV4 | Active | 1 | 1 | 1 |
 | S5 | [`scenarios/scenario_5_storage_throttle_pir.json`](scenarios/scenario_5_storage_throttle_pir.json) | Scenario | SEV2 | Resolved | 4 | 3 | 5 |
 
 ## Run All Scenarios
