@@ -322,6 +322,8 @@ python scripts/run_scenarios.py --scenario 3  # single scenario
 
 ## Deploy to Azure Foundry
 
+> For a comprehensive step-by-step deployment guide, see [Hosting_Agent.md](Hosting_Agent.md).
+>
 > Ref: [Deploy a hosted agent](https://learn.microsoft.com/azure/ai-foundry/agents/how-to/deploy-hosted-agent?view=foundry&tabs=bash)
 
 ### Deploy prerequisites
