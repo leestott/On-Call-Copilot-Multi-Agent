@@ -18,8 +18,8 @@ Get the sample running locally in under 5 minutes.
 |------|----------|---------|
 | **Python 3.10+** | Yes | [python.org](https://www.python.org/downloads/) |
 | **Azure CLI** (`az`) | Yes | [Install Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) |
-| **Azure Foundry project** | Yes | [Create a Foundry project](https://learn.microsoft.com/azure/ai-foundry/how-to/create-projects) |
-| **Model Router deployment** | Yes | [Deploy Model Router](https://learn.microsoft.com/azure/ai-foundry/openai/how-to/model-router) |
+| **Microsoft Foundry project** | Yes | [Create a Foundry project](https://learn.microsoft.com/azure/ai-foundry/how-to/create-projects) |
+| **Microsoft Foundry Model Router deployment** | Yes | [Deploy Model Router](https://learn.microsoft.com/azure/ai-foundry/openai/how-to/model-router) |
 | **Docker Desktop** | For deployment only | [docker.com](https://www.docker.com/products/docker-desktop/) |
 
 ### 2. Clone and set up
@@ -75,8 +75,8 @@ AZURE_AI_PROJECT_ENDPOINT=https://<account>.services.ai.azure.com/api/projects/<
 >
 > | Variable | Location in Azure Portal |
 > |----------|--------------------------|
-> | `AZURE_OPENAI_ENDPOINT` | AI Services resource → Overview → Endpoint |
-> | `AZURE_OPENAI_API_KEY` | AI Services resource → Keys and Endpoint |
+> | `AZURE_OPENAI_ENDPOINT` | Microsoft Foundry Model → Overview → Endpoint |
+> | `AZURE_OPENAI_API_KEY` | Microsoft Foundry Model → Keys and Endpoint |
 > | `AZURE_OPENAI_CHAT_DEPLOYMENT_NAME` | Microsoft Foundry → Deployments (usually `model-router`) |
 > | `AZURE_AI_PROJECT_ENDPOINT` | Microsoft Foundry → project → Overview → Endpoint |
 >
@@ -196,7 +196,7 @@ flowchart TD
 | **Comms** | Slack update, stakeholder briefing | `comms` |
 | **PIR** | Post-incident timeline, customer impact, prevention actions | `post_incident_report` |
 
-### Why Model Router?
+### Why Microsoft Foundry Model Router?
 
 Model Router automatically routes each request to the best model based on complexity — no model-selection logic needed in your code:
 
@@ -320,7 +320,7 @@ python scripts/run_scenarios.py --scenario 3  # single scenario
 
 ---
 
-## Deploy to Azure Foundry
+## Deploy to Microsoft Foundry
 
 > For a comprehensive step-by-step deployment guide, see [Hosting_Agent.md](Hosting_Agent.md).
 >
@@ -437,8 +437,8 @@ python scripts/deploy_sdk.py --delete
 
 | Variable | Required | Description |
 |---|---|---|
-| `AZURE_OPENAI_ENDPOINT` | Yes | Azure OpenAI / AI Services endpoint |
-| `AZURE_OPENAI_API_KEY` | Yes | API key (Azure Portal → Keys and Endpoint) |
+| `AZURE_OPENAI_ENDPOINT` | Yes | Microsoft Model/ AI Services endpoint |
+| `AZURE_OPENAI_API_KEY` | Yes | API key (Ai.azure.com Portal → Keys and Endpoint) |
 | `AZURE_OPENAI_CHAT_DEPLOYMENT_NAME` | Yes | Model Router deployment name (e.g. `model-router`) |
 | `AZURE_AI_PROJECT_ENDPOINT` | Yes | Foundry project endpoint (`https://<account>.services.ai.azure.com/api/projects/<project>`) |
 | `AGENT_NAME` | No | Agent name for SDK scripts (default: `oncall-copilot`) |
