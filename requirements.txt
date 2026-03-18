@@ -5,3 +5,6 @@ agent-dev-cli
 debugpy
 python-dotenv
 requests
+# Pin Starlette below 1.0: azure-ai-agentserver-core==1.0.0b14 uses the
+# deprecated on_event() API which was removed in Starlette 1.0.0rc1.
+starlette>=0.36.0,<1.0.0
