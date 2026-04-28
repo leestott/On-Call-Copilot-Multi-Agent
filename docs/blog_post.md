@@ -1,12 +1,12 @@
 # Building an On-Call Copilot with Microsoft Agent Framework: Four AI Agents, One Incident Response
 
-*February 2026 · Lee Stott, Microsoft*
+*April 2026 · Lee Stott, Microsoft*
 
 ---
 
 When an incident fires at 3 am, every second the on-call engineer spends piecing together alerts, logs, and metrics is a second not spent fixing the problem. This post walks through how we built **On-Call Copilot**: a multi-agent AI system that ingests raw incident signals and returns structured triage, a Slack update, a stakeholder brief, and a draft post-incident report in under 10 seconds.
 
-The full sample code is at [github.com/microsoft-foundry/oncall-copilot](https://github.com/microsoft-foundry/oncall-copilot). Deploy it to your own Foundry project with a single `azd up`.
+The full sample code is at [github.com/microsoft-foundry/oncall-copilot](https://github.com/microsoft-foundry/oncall-copilot). Deploy it to your own Foundry project with `azd deploy` and have it responding to incidents in under five minutes.
 
 ---
 
@@ -63,38 +63,40 @@ All four agents share a single Azure OpenAI **Model Router** deployment. This is
 The entry point is remarkably concise. `ConcurrentBuilder` handles all the async wiring:
 
 ```python
-from agent_framework import ConcurrentBuilder
-from agent_framework.azure import AzureOpenAIChatClient
-from azure.ai.agentserver.agentframework import from_agent_framework
-from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+from agent_framework import Agent
+from agent_framework_foundry import FoundryChatClient
+from agent_framework_foundry_hosting import ResponsesHostServer
+from agent_framework_orchestrations import ConcurrentBuilder
+from azure.identity import DefaultAzureCredential
 
 _credential = DefaultAzureCredential()
-_token_provider = get_bearer_token_provider(
-    _credential, "https://cognitiveservices.azure.com/.default"
-)
+chat_client = FoundryChatClient(project_endpoint=project_endpoint, model=model, credential=_credential)
 
-def create_workflow_builder():
-    triage = AzureOpenAIChatClient(ad_token_provider=_token_provider).create_agent(
+def create_workflow():
+  triage = Agent(
+    client=chat_client,
         instructions=TRIAGE_INSTRUCTIONS,
         name="triage-agent",
     )
-    summary = AzureOpenAIChatClient(ad_token_provider=_token_provider).create_agent(
+  summary = Agent(
+    client=chat_client,
         instructions=SUMMARY_INSTRUCTIONS,
         name="summary-agent",
     )
-    comms = AzureOpenAIChatClient(ad_token_provider=_token_provider).create_agent(
+  comms = Agent(
+    client=chat_client,
         instructions=COMMS_INSTRUCTIONS,
         name="comms-agent",
     )
-    pir = AzureOpenAIChatClient(ad_token_provider=_token_provider).create_agent(
+  pir = Agent(
+    client=chat_client,
         instructions=PIR_INSTRUCTIONS,
         name="pir-agent",
     )
-    return ConcurrentBuilder().participants([triage, summary, comms, pir])
+  return ConcurrentBuilder(participants=[triage, summary, comms, pir]).build()
 
 def main():
-    builder = create_workflow_builder()
-    from_agent_framework(builder.build).run()  # starts on port 8088
+    ResponsesHostServer(create_workflow().as_agent(name="oncall-copilot")).run(port=8088)
 ```
 
 `DefaultAzureCredential` means the container uses managed identity in production and your local `az login` session in development; no secrets, no key rotation.
@@ -207,12 +209,12 @@ python scripts/invoke.py --scenario 1  # Redis cluster outage scenario
 # Or with curl directly
 TOKEN=$(az account get-access-token --resource https://ai.azure.com --query accessToken -o tsv)
 
-curl -X POST "$AZURE_AI_PROJECT_ENDPOINT/openai/responses?api-version=2025-05-15-preview" \
+curl -X POST "$AZURE_AI_PROJECT_ENDPOINT/agents/oncall-copilot/endpoint/protocols/openai/responses?api-version=2025-11-15-preview" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
+  -H "x-ms-protocol-version: 1.0.0" \
   -d '{
-    "input": [{"role": "user", "content": "<incident JSON here>"}],
-    "agent": {"type": "agent_reference", "name": "oncall-copilot"}
+    "input": [{"role": "user", "content": "<incident JSON here>"}]
   }'
 ```
 
@@ -295,21 +297,23 @@ export AGENT_NAME="oncall-copilot"
 python ui/server.py
 ```
 
-The server uses Python's stdlib `http.server` plus `requests` and `python-dotenv` — both are already in `requirements.txt`.
+The server uses Python's stdlib `http.server` with `ThreadingMixIn` for concurrent request handling, plus `requests` and `python-dotenv` — both are already in `requirements.txt`. Authentication tries `AzureCliCredential` first (reusing your `az login` session) and falls back to `InteractiveBrowserCredential`, so it works out of the box on most developer machines.
 
 ---
 
 ## Deployment
 
-### Option A: `azd up` (90 seconds)
+### Option A: `azd deploy` (under 4 minutes)
 
-The repo includes `azure.yaml` and `agent.yaml`, so deployment is a single command:
+With infrastructure pre-provisioned (Foundry project, ACR, Model Router deployment, RBAC), deployment is a single command:
 
 ```bash
-azd up
+azd deploy --no-prompt
 ```
 
-This provisions the Foundry project resources, builds the Docker image, pushes to Azure Container Registry, deploys a Model Router instance, and creates the Hosted Agent. The `agent.yaml` defines the agent name, protocols, and environment variable bindings; `azure.yaml` configures the container resources, scaling, and model deployments.
+This builds the Docker image via remote ACR build, pushes it, and creates the Hosted Agent version. The `agent.yaml` defines the agent name, protocols, and environment variable bindings; `azure.yaml` configures the container resources (1 vCPU, 2 GiB memory) and model deployments.
+
+If you also need to provision the infrastructure from scratch, use `azd up` which runs both provisioning and deployment.
 
 ### Option B: Python SDK deploy script
 
@@ -352,7 +356,7 @@ Model Router Insights and Telemetry from Microsoft Foundry
 
 ### 4. `DefaultAzureCredential` everywhere
 
-No API keys. No token management code. The hosted container uses a managed identity. Local development uses the `az login` session. The same code runs in both environments without modification.
+No API keys. No token management code. The hosted container uses a managed identity. Local development uses the `az login` session via `AzureCliCredential`. The UI server tries CLI credentials first and falls back to browser-based sign-in. The same code runs in both environments without modification.
 
 ### 5. Separation of instructions from code
 
@@ -397,9 +401,10 @@ source .venv/bin/activate  # or .venv\Scripts\activate on Windows
 pip install -r requirements.txt
 
 # Set env vars (Foundry project endpoint + Model Router deployment)
-export AZURE_OPENAI_ENDPOINT="https://<account>.openai.azure.com/"
+export AZURE_OPENAI_ENDPOINT="https://<model-account>.cognitiveservices.azure.com/"
 export AZURE_OPENAI_CHAT_DEPLOYMENT_NAME="model-router"
-export AZURE_AI_PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
+export AZURE_AI_PROJECT_ENDPOINT="https://<hosted-account>.services.ai.azure.com/api/projects/<hosted-project>"
+export AZURE_MODEL_PROJECT_ENDPOINT="https://<model-account>.services.ai.azure.com/api/projects/<model-project>"
 
 # Validate schemas locally without Azure (mock mode)
 MOCK_MODE=true python scripts/validate.py
@@ -426,6 +431,15 @@ A few natural extensions:
 - **Ticket auto-creation**: add a fifth agent (post-resolution) that creates a Jira or Azure DevOps ticket from the PIR output.
 - **Human-in-the-loop**: surface the `missing_information` list back to the on-call engineer as a form before proceeding, so the agent can re-run with the gaps filled.
 - **Feedback loop**: track confidence vs actual root cause accuracy over time; use the delta to improve agent instructions.
+
+## April 2026 Update
+
+Since the initial February release, the project has been fully deployed as a **Foundry Hosted Agent** running on Microsoft Agent Framework 1.2.0. Key updates:
+
+- **Successful end-to-end deployment**: The agent is live on Microsoft Foundry in Sweden Central, responding to all 8 test incident scenarios (3 demos + 5 scenarios) with full structured output in ~19 seconds.
+- **SDK stack**: `agent-framework==1.2.0`, `agent-framework-foundry==1.2.0`, `agent-framework-foundry-hosting==1.0.0a260424`, `agent-framework-orchestrations==1.0.0b260424`.
+- **UI server improvements**: Added `ThreadingMixIn` for concurrent request handling, `AzureCliCredential` as the primary auth method (falls back to browser sign-in), and fixed a variable reference bug in agent invocation.
+- **Deployment simplified**: With infrastructure pre-provisioned, `azd deploy --no-prompt` completes in under 4 minutes including remote ACR image build.
 
 ## Resources
 

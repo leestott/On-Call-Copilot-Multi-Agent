@@ -16,10 +16,11 @@ case "$DEMO" in
 esac
 
 echo "==> Sending $FILE to $BASE/responses ..."
+BODY=$(python -c 'import json,sys; print(json.dumps({"input":[{"role":"user","content":open(sys.argv[1],encoding="utf-8").read()}]}))' "$FILE")
 curl -s -X POST "$BASE/responses" \
   -H "Content-Type: application/json" \
-  -d @"$FILE" | python -m json.tool
+  -d "$BODY" | python -m json.tool
 
 echo ""
-echo "==> Health check:"
-curl -s "$BASE/health" | python -m json.tool
+echo "==> Readiness check:"
+curl -s "$BASE/readiness" | python -m json.tool

@@ -1,5 +1,10 @@
 .venv*/
+.env
+.env*
+!.env.example
 .azure/
+.azd/
+.checkpoints/
 .vscode/
 .git/
 __pycache__/
@@ -14,6 +19,8 @@ azure.yaml
 agent_help.txt
 agent_status.txt
 agent_versions.txt
+agent.json
+agentinfo.json
 container_logs*.txt
 sdk_help.txt
 start_help.txt

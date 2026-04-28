@@ -4,6 +4,50 @@ All notable changes to On-Call Copilot are documented here.
 
 ---
 
+## [2026-04-28]
+
+### Added
+- **`docs/MIGRATION.md`**: New best-practice migration guide for moving from the original Azure AI AgentServer hosted agents to Microsoft Foundry Hosted Agents on Microsoft Agent Framework 1.2 — covering code changes, `agent.yaml`/`azure.yaml`, Bicep/REST bootstrap order (account → project → both `Agents` capability hosts → model-router → RBAC → ACR → `azd deploy`), required RBAC, validation, and common 500/401/404 troubleshooting.
+- **Fresh Azure Container Registry** `croncallswcna3yxs` (`croncallswcna3yxs.azurecr.io`) in Sweden Central with a freshly built `oncall-copilot:agent-framework-1.2.0` image and AcrPull granted to the project + account managed identities. `.env` and the `oncall-dev` azd environment retargeted accordingly.
+
+### Changed
+- **Single-project Sweden Central topology**: Consolidated hosted agent and Model Router into a single Foundry project in Sweden Central — the only region currently supporting both Hosted Agents preview and Model Router. Provisioned a fresh AIServices account `oncall-foundry-swc` with project `oncall-copilot-project`, account- and project-scope `Agents` capability hosts, and a `model-router` deployment (version `2025-11-18`, `GlobalStandard`, capacity 50).
+- **`.env` and `azd env` retargeted** to the new Sweden Central project endpoint (`https://oncall-foundry-swc.services.ai.azure.com/api/projects/oncall-copilot-project`) and `AZURE_OPENAI_CHAT_DEPLOYMENT_NAME=model-router`.
+
+### Deployed
+- **Hosted Agent version 1 deployed successfully** via `azd deploy --no-prompt` (3 min 55 s). The previously known service-side `create_version` 500 error has been resolved. Agent confirmed active via `scripts/verify_agent.py` — HTTP 200, `status: completed`, all four specialist agents (Triage, Summary, Comms, PIR) responding correctly.
+- **End-to-end validation**: UI server tested with all 8 incident payloads (3 demos + 5 scenarios). Agent responds in ~19 seconds with full structured output containing all 7 expected keys.
+
+### Fixed
+- **UI server authentication (`ui/server.py`)**: Changed from `InteractiveBrowserCredential`-only to trying `AzureCliCredential` first (uses existing `az login` session), with fallback to `InteractiveBrowserCredential`. Resolves 403 errors when the interactive browser identity lacks `agents/action` permissions.
+- **UI server `NameError` (`ui/server.py`)**: Added missing `agent_version` variable assignment in `_invoke_agent()` — was referenced in the request URL construction but never defined, causing a crash on every invocation.
+- **UI server concurrency (`ui/server.py`)**: Replaced single-threaded `HTTPServer` with `ThreadedHTTPServer` (using `ThreadingMixIn`) so the UI remains responsive while long-running agent calls (~19 s) are in flight. Health check and static file requests no longer block behind agent invocations.
+
+### Resolved
+- **Service-side `create_version` 500 error** (previously listed as Known Issue): The Hosted Agents preview regression has been fixed by Microsoft. Deployment via `azd deploy` now succeeds on the first attempt.
+
+---
+
+## [2026-04-27]
+
+### Fixed
+- **Hosted-agent invocation**: Restored `scripts/invoke.py` to use the hosted agent endpoint route (`/agents/<name>/endpoint/protocols/openai/responses`) with Responses protocol version `1.0.0` and tenant-aware Azure CLI token acquisition on Windows.
+- **Cross-project Model Router access**: Added documentation and validation notes for granting hosted-agent managed identities access to the separate Model Router project/account.
+- **Documentation correctness**: Updated Markdown references for the current Agent Framework stack, split hosted/model project configuration, hosted-agent request shape, and public-sharing hygiene.
+
+### Changed
+- **Microsoft Agent Framework upgrade**: Migrated the hosted entrypoint to the current Agent Framework stack using `Agent`, `FoundryChatClient`, `ConcurrentBuilder`, and `ResponsesHostServer`.
+- **Foundry hosted deployment**: Validated deployment of `oncall-copilot` into the hosted Foundry project while keeping Model Router inference in a separate model project with deployment `model-router-1`.
+- **Deployment configuration**: Split hosted-agent and model-project configuration with `AZURE_AI_PROJECT_ENDPOINT` for the hosted agent project and `AZURE_MODEL_PROJECT_ENDPOINT` for the Model Router project.
+- **Container build**: Updated the Dockerfile to install `requirements.txt` explicitly from `python:3.12-slim` so dependency installation fails fast if the file is missing.
+- **Repository hygiene**: Hardened ignored local files and Docker build context for public sharing.
+
+### Validated
+- Confirmed local Python compilation, YAML parsing, ACR image build, hosted-agent active status, hosted endpoint routing, and in-process multi-agent workflow execution against Model Router.
+- Hosted endpoint invocation currently reaches the active agent but returns a service-side `server_error`; local workflow execution succeeds with the same split model-project configuration.
+
+---
+
 ## [2026-03-18]
 
 ### Fixed

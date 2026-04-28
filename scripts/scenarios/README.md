@@ -2,7 +2,7 @@
 
 Five realistic incident scenarios for integration testing, batch runs, and schema validation against the On-Call Copilot agent.
 
-Each file is a self-contained JSON payload matching the [input envelope schema](../../README.md#api-contract). Send any file directly to the agent via the Foundry Agent Playground, curl, or the invoke script.
+Each file is a self-contained incident payload matching the [incident payload schema](../../README.md#api-contract). Use `scripts/invoke.py`, `scripts/run_scenarios.py`, or the Foundry Agent Playground to send scenarios. For direct HTTP calls to the local Agent Framework server, wrap the scenario JSON in the Responses `input` envelope first.
 
 ---
 

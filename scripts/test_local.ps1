@@ -16,9 +16,12 @@ $files = @{
 $file = $files[$Demo]
 Write-Host "==> Sending $file to $base/responses ..."
 
-$body = Get-Content -Raw -Path $file
+$incident = Get-Content -Raw -Path $file
+$body = @{
+    input = @(@{ role = "user"; content = $incident })
+} | ConvertTo-Json -Depth 10
 $response = Invoke-RestMethod -Uri "$base/responses" -Method Post -ContentType "application/json" -Body $body
 $response | ConvertTo-Json -Depth 10
 
-Write-Host "`n==> Health check:"
-Invoke-RestMethod -Uri "$base/health" | ConvertTo-Json
+Write-Host "`n==> Readiness check:"
+Invoke-RestMethod -Uri "$base/readiness" | ConvertTo-Json

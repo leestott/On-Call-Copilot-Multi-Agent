@@ -1,7 +1,21 @@
-# Secrets and credentials — never commit these
+# Secrets and credentials - never commit these
 .env
-.env.*
+.env*
 !.env.example
+*.key
+*.pem
+*.pfx
+*.p12
+*.crt
+*.cer
+*.der
+*.jks
+*.keystore
+*.pub
+*.token
+*.secret
+secrets.*
+credentials.*
 
 # Python
 __pycache__/
@@ -11,8 +25,11 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
+.hypothesis/
 .coverage
+.coverage.*
 coverage.xml
+htmlcov/
 dist/
 build/
 *.egg-info/
@@ -25,17 +42,50 @@ env/
 
 # Azure developer tools
 .azure/
+.azd/
+azd-*.json
+azure-dev*.json
 *.log
+
+# Agent Framework and Foundry local state
+.checkpoints/
+.agents/
+.foundry/
+agent_status*.json
+agent_status*.txt
+agent_versions*.json
+agent_versions*.txt
+agent.json
+agentinfo.json
+deployment_log*.json
+deployment_log*.txt
+container_logs*.log
+container_logs*.txt
+verify_result*.json
+verify_result*.txt
 
 # Temporary debug/output files
 *.txt
 !requirements.txt
+test_body.json
+test_response.json
+response*.json
+responses*.json
+local_*.json
+tmp/
+temp/
+.tmp/
 
 # IDE and OS
 .vscode/settings.json
+.vscode/*.code-workspace
 .idea/
 *.DS_Store
 Thumbs.db
+desktop.ini
 
 # Docker build artifacts
 *.tar
+*.tar.gz
+*.tgz
+*.zip

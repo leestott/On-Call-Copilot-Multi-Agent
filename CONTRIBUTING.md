@@ -230,7 +230,7 @@ Before submitting a PR, please verify:
 
 ## Reporting Issues
 
-- Search [existing issues](../../issues) before opening a new one.
+- Search existing GitHub issues before opening a new one.
 - For **security vulnerabilities**, see [SECURITY.md](SECURITY.md) — do **not** open a public issue.
 - For **bugs**, provide: OS, Python version, full error traceback, and the command you ran.
 - For **feature requests**, describe the use case and what success looks like.

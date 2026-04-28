@@ -145,13 +145,17 @@ All agents share a single **Model Router** deployment (`AZURE_OPENAI_CHAT_DEPLOY
 The orchestrator is defined in [`main.py`](main.py):
 
 ```python
-from agent_framework import ConcurrentBuilder
-from agent_framework.azure import AzureOpenAIChatClient
+from agent_framework import Agent
+from agent_framework_foundry import FoundryChatClient
+from agent_framework_orchestrations import ConcurrentBuilder
 
-workflow = ConcurrentBuilder().participants([triage, summary, comms, pir])
+chat_client = FoundryChatClient(project_endpoint=project_endpoint, model=model)
+triage = Agent(client=chat_client, instructions=TRIAGE_INSTRUCTIONS, name="triage-agent")
+
+workflow = ConcurrentBuilder(participants=[triage, summary, comms, pir]).build()
 ```
 
-`ConcurrentBuilder` runs all four agents via `asyncio.gather()` — each agent processes the full incident independently and returns its JSON fragment. The orchestrator merges all fragments with `merged.update(agent_output)` and injects a `telemetry` block.
+`ConcurrentBuilder` runs all four agents concurrently. Each agent processes the full incident independently and returns its JSON fragment.
 
 ### Hosted Agent Definition
 
@@ -216,11 +220,12 @@ No Python code changes are needed — only the instruction text.
 2. Add the agent's output keys to [`app/schemas.py`](app/schemas.py)
 3. Register it in [`main.py`](main.py):
    ```python
-   new_agent = AzureOpenAIChatClient(ad_token_provider=_token_provider).create_agent(
+     new_agent = Agent(
+       client=chat_client,
        instructions=NEW_INSTRUCTIONS,
        name="new-agent",
    )
-   workflow = ConcurrentBuilder().participants([triage, summary, comms, pir, new_agent])
+     workflow = ConcurrentBuilder(participants=[triage, summary, comms, pir, new_agent]).build()
    ```
 4. Add a mock response in [`app/mock_router.py`](app/mock_router.py) for local validation
 5. Add a golden output file in `scripts/golden_outputs/`

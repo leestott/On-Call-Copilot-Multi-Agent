@@ -18,6 +18,7 @@ import sys
 import time
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from socketserver import ThreadingMixIn
 from pathlib import Path
 
 import requests
@@ -50,7 +51,17 @@ SCENARIO_LABELS = {
 # Authenticate once at startup, reuse for all requests.
 # The Agents API requires Azure AD bearer tokens (RBAC), not API keys.
 def _init_credential():
-    from azure.identity import InteractiveBrowserCredential
+    from azure.identity import AzureCliCredential, InteractiveBrowserCredential
+    # Try AzureCliCredential first (uses existing `az login` session),
+    # fall back to InteractiveBrowserCredential if az CLI is not authenticated.
+    try:
+        print("  Trying Azure CLI credential (az login)...", flush=True)
+        cred = AzureCliCredential()
+        cred.get_token("https://ai.azure.com/.default")
+        print("  Signed in via Azure CLI.", flush=True)
+        return cred
+    except Exception:
+        pass
     print("  Opening browser for Azure sign-in (one-time)...", flush=True)
     cred = InteractiveBrowserCredential()
     # Warm up the credential so the browser opens now, not on first request
@@ -66,7 +77,12 @@ _credential = _init_credential()
 def _get_auth_headers() -> dict:
     """Return bearer token headers using the cached credential."""
     token = _credential.get_token("https://ai.azure.com/.default").token
-    return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    return {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "x-ms-protocol-version": "1.0.0",
+        "x-ms-agent-protocol-version": "1.0.0",
+    }
 
 
 def _invoke_agent(content: str) -> dict:
@@ -78,11 +94,9 @@ def _invoke_agent(content: str) -> dict:
         )
     agent_name    = os.environ.get("AGENT_NAME", "oncall-copilot")
     agent_version = os.environ.get("AGENT_VERSION", "")
+    agent_path = urllib.parse.quote(agent_name, safe="")
 
     headers = _get_auth_headers()
-    spec: dict = {"type": "agent_reference", "name": agent_name}
-    if agent_version:
-        spec["version"] = agent_version
 
     # Prefix raw JSON with an instruction so the Responses API doesn't reject
     # minimal payloads with "ID cannot be null or empty".
@@ -100,12 +114,11 @@ def _invoke_agent(content: str) -> dict:
 
     body = {
         "input": [{"role": "user", "content": user_message}],
-        "agent": spec,
     }
 
     t0 = time.time()
     r = requests.post(
-        f"{endpoint}/openai/responses?api-version=2025-05-15-preview",
+        f"{endpoint}/agents/{agent_path}/endpoint/protocols/openai/responses?api-version=2025-11-15-preview",
         headers=headers, json=body, timeout=180,
     )
     elapsed = round(time.time() - t0, 1)
@@ -279,7 +292,10 @@ if __name__ == "__main__":
     print("  Press Ctrl+C to stop.")
     print()
 
-    server = HTTPServer(("localhost", PORT), Handler)
+    class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+        daemon_threads = True
+
+    server = ThreadedHTTPServer(("localhost", PORT), Handler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

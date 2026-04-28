@@ -1,10 +1,15 @@
-# On-Call Copilot – matches official foundry-samples pattern
-# Ref: github.com/microsoft-foundry/foundry-samples/.../agents-in-workflow/requirements.txt
-azure-ai-agentserver-agentframework==1.0.0b14
-agent-dev-cli
+# On-Call Copilot – Microsoft Agent Framework hosted-agent stack
+# Ref: https://github.com/microsoft/agent-framework
+agent-framework==1.2.0
+agent-framework-foundry==1.2.0
+agent-framework-foundry-hosting==1.0.0a260424
+agent-framework-orchestrations==1.0.0b260424
+agent-dev-cli==0.0.1b260427
+azure-ai-projects
+azure-identity
 debugpy
+fastapi
+jsonschema
 python-dotenv
 requests
-# Pin Starlette below 1.0: azure-ai-agentserver-core==1.0.0b14 uses the
-# deprecated on_event() API which was removed in Starlette 1.0.0rc1.
-starlette>=0.36.0,<1.0.0
+uvicorn

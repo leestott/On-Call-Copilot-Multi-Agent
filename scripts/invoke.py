@@ -43,10 +43,17 @@ DEFAULT_PROMPT = (
 
 
 def get_token() -> str:
+    az_executable = "az.cmd" if os.name == "nt" else "az"
+    command = [
+        az_executable, "account", "get-access-token", "--resource", "https://ai.azure.com",
+        "--query", "accessToken", "-o", "tsv",
+    ]
+    tenant_id = os.environ.get("AZURE_TENANT_ID")
+    if tenant_id:
+        command.extend(["--tenant", tenant_id])
     result = subprocess.run(
-        ["az", "account", "get-access-token", "--resource", "https://ai.azure.com",
-         "--query", "accessToken", "-o", "tsv"],
-        capture_output=True, text=True, shell=True,
+        command,
+        capture_output=True, text=True, timeout=60,
     )
     if result.returncode != 0:
         print(f"ERROR: az login required: {result.stderr.strip()}")
@@ -68,10 +75,12 @@ def get_config() -> tuple[str, str, str]:
 def invoke(endpoint: str, agent_name: str, agent_version: str, content: str,
            filter_key: str | None = None) -> None:
     token = get_token()
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-    agent_spec: dict = {"type": "agent_reference", "name": agent_name}
-    if agent_version:
-        agent_spec["version"] = agent_version
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "x-ms-protocol-version": "1.0.0",
+        "x-ms-agent-protocol-version": "1.0.0",
+    }
 
     # Prefix raw JSON with an instruction so the Responses API doesn't reject
     # minimal payloads with "ID cannot be null or empty".
@@ -88,10 +97,14 @@ def invoke(endpoint: str, agent_name: str, agent_version: str, content: str,
 
     body = {
         "input": [{"role": "user", "content": user_message}],
-        "agent": agent_spec,
     }
 
-    version_label = agent_version if agent_version else "latest"
+    version_label = agent_version if agent_version else "active"
+    responses_url = (
+        f"{endpoint}/agents/{agent_name}"
+        "/endpoint/protocols/openai/responses"
+        "?api-version=2025-11-15-preview"
+    )
     print(f"Endpoint : {endpoint}")
     print(f"Agent    : {agent_name}:{version_label}")
     print(f"Prompt   : {content[:120]}{'...' if len(content) > 120 else ''}")
@@ -99,7 +112,7 @@ def invoke(endpoint: str, agent_name: str, agent_version: str, content: str,
 
     t0 = time.time()
     r = requests.post(
-        f"{endpoint}/openai/responses?api-version=2025-05-15-preview",
+        responses_url,
         headers=headers, json=body, timeout=180,
     )
     elapsed = time.time() - t0

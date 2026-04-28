@@ -47,8 +47,8 @@ This directory contains two categories of test payload:
 **Run it:**
 ```bash
 python scripts/invoke.py --demo 1
-# or via curl (local server):
-curl -X POST http://localhost:8088/responses -H "Content-Type: application/json" -d @scripts/demos/demo_1_simple_alert.json
+# or against a local Agent Framework server:
+bash scripts/test_local.sh 1
 ```
 
 ---
@@ -83,8 +83,8 @@ curl -X POST http://localhost:8088/responses -H "Content-Type: application/json"
 **Run it:**
 ```bash
 python scripts/invoke.py --demo 2
-# or via curl (local server):
-curl -X POST http://localhost:8088/responses -H "Content-Type: application/json" -d @scripts/demos/demo_2_multi_signal.json
+# or against a local Agent Framework server:
+bash scripts/test_local.sh 2
 ```
 
 ---
@@ -121,8 +121,8 @@ curl -X POST http://localhost:8088/responses -H "Content-Type: application/json"
 **Run it:**
 ```bash
 python scripts/invoke.py --demo 3
-# or via curl (local server):
-curl -X POST http://localhost:8088/responses -H "Content-Type: application/json" -d @scripts/demos/demo_3_post_incident.json
+# or against a local Agent Framework server:
+bash scripts/test_local.sh 3
 ```
 
 ---

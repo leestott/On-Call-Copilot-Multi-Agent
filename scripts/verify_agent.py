@@ -16,6 +16,7 @@ import json
 import os
 import subprocess
 import sys
+import urllib.parse
 
 import requests
 
@@ -27,10 +28,17 @@ SMOKE_PROMPT = (
 
 
 def get_token(resource: str = "https://ai.azure.com") -> str:
+    az_executable = "az.cmd" if os.name == "nt" else "az"
+    command = [
+        az_executable, "account", "get-access-token", "--resource", resource,
+        "--query", "accessToken", "-o", "tsv",
+    ]
+    tenant_id = os.environ.get("AZURE_TENANT_ID")
+    if tenant_id:
+        command.extend(["--tenant", tenant_id])
     result = subprocess.run(
-        ["az", "account", "get-access-token", "--resource", resource,
-         "--query", "accessToken", "-o", "tsv"],
-        capture_output=True, text=True, shell=True,
+        command,
+        capture_output=True, text=True, timeout=60,
     )
     if result.returncode != 0:
         print(f"ERROR: az login required: {result.stderr.strip()}")
@@ -52,12 +60,18 @@ def get_config() -> tuple[str, str, str]:
 def main() -> None:
     endpoint, agent_name, agent_version = get_config()
     token = get_token()
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "x-ms-protocol-version": "1.0.0",
+        "x-ms-agent-protocol-version": "1.0.0",
+    }
+    agent_path = urllib.parse.quote(agent_name, safe="")
 
     # 1. Show agent info
     print("=== Agent Info ===")
     r = requests.get(
-        f"{endpoint}/agents/{agent_name}?api-version=2025-05-15-preview",
+        f"{endpoint}/agents/{agent_path}?api-version=2025-11-15-preview",
         headers=headers, timeout=30,
     )
     if r.ok:
@@ -74,11 +88,10 @@ def main() -> None:
     print("\n=== Smoke Test ===")
     payload = {
         "input": [{"role": "user", "content": SMOKE_PROMPT}],
-        "agent": {"type": "agent_reference", "name": agent_name, "version": agent_version},
     }
     try:
         resp = requests.post(
-            f"{endpoint}/openai/responses?api-version=2025-05-15-preview",
+            f"{endpoint}/agents/{agent_path}/endpoint/protocols/openai/responses?api-version=2025-11-15-preview",
             json=payload, headers=headers, timeout=180,
         )
         print(f"  HTTP {resp.status_code}")

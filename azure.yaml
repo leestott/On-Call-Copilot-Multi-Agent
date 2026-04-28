@@ -15,15 +15,3 @@ services:
                 resources:
                     cpu: "1"
                     memory: 2Gi
-                scale:
-                    maxReplicas: 3
-                    minReplicas: 1
-            deployments:
-                - model:
-                    format: OpenAI
-                    name: model-router
-                    version: "2025-11-18"
-                  name: model-router
-                  sku:
-                    capacity: 10
-                    name: GlobalStandard

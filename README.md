@@ -62,23 +62,26 @@ cp .env.example .env
 copy .env.example .env
 ```
 
-Open `.env` and set the four required variables:
+Open `.env` and set the hosted-agent project plus the Model Router project. These can be the same Foundry project, but they are separate variables so the hosted agent can run in one project while inference uses a Model Router deployment in another.
 
 ```dotenv
-AZURE_OPENAI_ENDPOINT=https://<your-resource>.openai.azure.com/
-AZURE_OPENAI_API_KEY=<your-api-key>
+AZURE_AI_PROJECT_ENDPOINT=https://<hosted-account>.services.ai.azure.com/api/projects/<hosted-project>
+AZURE_MODEL_PROJECT_ENDPOINT=https://<model-account>.services.ai.azure.com/api/projects/<model-project>
+AZURE_OPENAI_ENDPOINT=https://<model-account>.cognitiveservices.azure.com/
 AZURE_OPENAI_CHAT_DEPLOYMENT_NAME=model-router
-AZURE_AI_PROJECT_ENDPOINT=https://<account>.services.ai.azure.com/api/projects/<project>
+MODEL_ROUTER_DEPLOYMENT=model-router
 ```
 
 > **Where to find these values:**
 >
 > | Variable | Location in Azure Portal |
 > |----------|--------------------------|
-> | `AZURE_OPENAI_ENDPOINT` | Microsoft Foundry Model → Overview → Endpoint |
+> | `AZURE_AI_PROJECT_ENDPOINT` | Microsoft Foundry hosted-agent project → Overview → Endpoint |
+> | `AZURE_MODEL_PROJECT_ENDPOINT` | Microsoft Foundry model project → Overview → Endpoint |
+> | `AZURE_OPENAI_ENDPOINT` | Azure AI Services resource → Keys and Endpoint |
 > | `AZURE_OPENAI_API_KEY` | Microsoft Foundry Model → Keys and Endpoint |
 > | `AZURE_OPENAI_CHAT_DEPLOYMENT_NAME` | Microsoft Foundry → Deployments (usually `model-router`) |
-> | `AZURE_AI_PROJECT_ENDPOINT` | Microsoft Foundry → project → Overview → Endpoint |
+> | `MODEL_ROUTER_DEPLOYMENT` | Same Model Router deployment name used by scripts and mock telemetry |
 >
 > `.env` is in `.gitignore` — your credentials will not be committed.
 
@@ -114,11 +117,6 @@ The UI lets you load sample incidents, send them to the agent, and view results 
 ### 7. Test with a sample incident
 
 ```bash
-# curl — send a demo payload
-curl -X POST http://localhost:8088/responses \
-  -H "Content-Type: application/json" \
-  -d @scripts/demos/demo_1_simple_alert.json
-
 # PowerShell
 .\scripts\test_local.ps1 -Demo 1
 
@@ -137,7 +135,7 @@ flowchart TD
     Client["Client<br/>CLI / curl / Foundry UI"]
 
     subgraph Foundry["Foundry Agent Service (Hosted Container)"]
-        Orchestrator["OncallCopilotAgent<br/>(BaseAgent orchestrator)"]
+        Orchestrator["Agent Framework workflow<br/>(ResponsesHostServer)"]
 
         subgraph Concurrent["Concurrent execution - asyncio.gather()"]
             direction LR
@@ -152,7 +150,7 @@ flowchart TD
 
     ModelRouter["Microsoft Foundry Model Router<br/>(single deployment -<br/>routes to best model<br/>per request complexity)"]
 
-    Client -->|"POST /responses (incident JSON)"| Orchestrator
+    Client -->|"POST /responses (Responses input envelope)"| Orchestrator
     Orchestrator --> Concurrent
     Triage -->|JSON fragment| Merge
     Summary -->|JSON fragment| Merge
@@ -180,12 +178,11 @@ flowchart TD
 ### Request flow
 
 1. **Request arrives** via the Responses API protocol (port 8088)
-2. **Orchestrator** (`OncallCopilotAgent.run()`) receives the incident payload
-3. Four specialist agents are created, each with dedicated instructions from `app/agents/`
-4. All four are invoked **concurrently** via `asyncio.gather()` against Model Router
+2. The hosted `WorkflowAgent` receives the user message
+3. Four specialist `Agent` instances are created with dedicated instructions from `app/agents/`
+4. `ConcurrentBuilder` invokes all four specialists concurrently against Model Router
 5. Each specialist returns a JSON fragment covering its output keys
-6. The orchestrator **merges** all fragments and injects a `telemetry` block
-7. The merged JSON is returned as the response
+6. The response text contains the specialist JSON fragments for downstream parsing
 
 ### Multi-Agent Design
 
@@ -277,7 +274,22 @@ python scripts/run_scenarios.py --scenario 3  # single scenario
 
 ## API Contract
 
-### Input Envelope
+### Responses Request Envelope
+
+The Agent Framework server accepts the Responses protocol. Put the incident payload into the `content` field as text.
+
+```json
+{
+  "input": [
+    {
+      "role": "user",
+      "content": "{\"incident_id\":\"INC-20260217-001\",\"title\":\"API Gateway 5xx spike\",\"severity\":\"SEV1\"}"
+    }
+  ]
+}
+```
+
+### Incident Payload
 
 ```json
 {
@@ -322,7 +334,7 @@ python scripts/run_scenarios.py --scenario 3  # single scenario
 
 ## Deploy to Microsoft Foundry
 
-> For a comprehensive step-by-step deployment guide, see [Hosting_Agent.md](Hosting_Agent.md).
+> For a comprehensive step-by-step deployment, hosting, and migration guide, see [docs/HOSTED_AGENT_GUIDE.md](docs/HOSTED_AGENT_GUIDE.md).
 >
 > Ref: [Deploy a hosted agent](https://learn.microsoft.com/azure/ai-foundry/agents/how-to/deploy-hosted-agent?view=foundry&tabs=bash)
 
@@ -438,9 +450,13 @@ python scripts/deploy_sdk.py --delete
 | Variable | Required | Description |
 |---|---|---|
 | `AZURE_OPENAI_ENDPOINT` | Yes | Microsoft Model/ AI Services endpoint |
-| `AZURE_OPENAI_API_KEY` | Yes | API key (Ai.azure.com Portal → Keys and Endpoint) |
+| `AZURE_OPENAI_API_KEY` | No | Optional API key for the UI server; the Agent Framework server uses Azure identity |
 | `AZURE_OPENAI_CHAT_DEPLOYMENT_NAME` | Yes | Model Router deployment name (e.g. `model-router`) |
-| `AZURE_AI_PROJECT_ENDPOINT` | Yes | Foundry project endpoint (`https://<account>.services.ai.azure.com/api/projects/<project>`) |
+| `MODEL_ROUTER_DEPLOYMENT` | Yes | Model Router deployment name used by scripts and telemetry |
+| `AZURE_AI_PROJECT_ENDPOINT` | Yes | Foundry project endpoint for the hosted agent |
+| `AZURE_MODEL_PROJECT_ENDPOINT` | Yes | Foundry project endpoint that contains the Model Router deployment |
+| `AZURE_TENANT_ID` | Recommended | Tenant used by local CLI helper scripts |
+| `AZURE_SUBSCRIPTION_ID` | Recommended | Subscription used for deployment metadata |
 | `AGENT_NAME` | No | Agent name for SDK scripts (default: `oncall-copilot`) |
 | `AGENT_VERSION` | No | Agent version for SDK scripts (default: `latest`) |
 | `ACR_IMAGE` | No | ACR image URI for `deploy_sdk.py` |
@@ -493,7 +509,10 @@ On-Call-Copilot-Multi-Agent/
 
 | Package | Purpose |
 |---|---|
-| `azure-ai-agentserver-agentframework` | Agent Framework hosting + `BaseAgent`, `AzureOpenAIChatClient` |
+| `agent-framework` | Core `Agent` abstraction and workflow integration |
+| `agent-framework-foundry-hosting` | `ResponsesHostServer` for Foundry hosted-agent protocol hosting |
+| `agent-framework-orchestrations` | `ConcurrentBuilder` orchestration for the four specialist agents |
+| `agent-framework-foundry` | `FoundryChatClient` integration with Foundry Model Router |
 | `azure-identity` | `DefaultAzureCredential` for Azure OpenAI bearer tokens |
 | `python-dotenv` | Auto-load `.env` file at startup |
 

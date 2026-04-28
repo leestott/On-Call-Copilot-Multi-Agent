@@ -6,7 +6,7 @@ This document covers the configuration of the **Comms Agent** and **PIR Agent** 
 
 ## Overview
 
-All four specialist agents are defined as plain Python strings (`*_INSTRUCTIONS`) in `app/agents/`. Each constant is injected as the `system` prompt when the agent is created via `AzureOpenAIChatClient`. To change agent behaviour, edit the corresponding instruction constant and rebuild/redeploy the container.
+All four specialist agents are defined as plain Python strings (`*_INSTRUCTIONS`) in `app/agents/`. Each constant is injected as the instruction prompt when the `Agent` is created with the shared `FoundryChatClient`. To change agent behaviour, edit the corresponding instruction constant and rebuild/redeploy the container.
 
 | Agent | File | Output keys |
 |-------|------|-------------|

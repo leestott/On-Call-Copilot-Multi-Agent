@@ -1,69 +1,83 @@
 # Copyright (c) Microsoft. All rights reserved.
-# On-Call Copilot – Multi-Agent Hosted Agent
-#
-# Uses ConcurrentBuilder to run 4 specialist agents in parallel.
-# Pattern follows the official agents-in-workflow sample:
-#   github.com/microsoft-foundry/foundry-samples/.../agents-in-workflow
-#
-# Ref: https://learn.microsoft.com/azure/ai-foundry/agents/how-to/deploy-hosted-agent
+# On-Call Copilot - Multi-Agent Hosted Agent
 
-import sys
 import os
+import sys
 from pathlib import Path
+
+from agent_framework import Agent
+from agent_framework_foundry import FoundryChatClient
+from agent_framework_foundry_hosting import ResponsesHostServer
+from agent_framework_orchestrations import ConcurrentBuilder
+from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
-load_dotenv(Path(__file__).resolve().parent / ".env")
-print(f"[oncall-copilot] Starting... Python {sys.version}", flush=True)
-print(f"[oncall-copilot] AZURE_OPENAI_ENDPOINT={os.environ.get('AZURE_OPENAI_ENDPOINT','<unset>')}", flush=True)
-print(f"[oncall-copilot] AZURE_OPENAI_CHAT_DEPLOYMENT_NAME={os.environ.get('AZURE_OPENAI_CHAT_DEPLOYMENT_NAME','<unset>')}", flush=True)
 
-from agent_framework import ConcurrentBuilder
-from agent_framework.azure import AzureOpenAIChatClient
-from azure.ai.agentserver.agentframework import from_agent_framework
-from azure.identity import DefaultAzureCredential, get_bearer_token_provider
-
-from app.agents.triage import TRIAGE_INSTRUCTIONS
 from app.agents.comms import COMMS_INSTRUCTIONS
 from app.agents.pir import PIR_INSTRUCTIONS
 from app.agents.summary import SUMMARY_INSTRUCTIONS
+from app.agents.triage import TRIAGE_INSTRUCTIONS
 
-# Create a token provider that refreshes tokens automatically for long-running servers.
-# This avoids 401 errors when the initial token expires (typically after 1 hour).
+load_dotenv(Path(__file__).resolve().parent / ".env")
+
+
+def _presence(name: str) -> str:
+    return "set" if os.environ.get(name) else "unset"
+
+
+print(f"[oncall-copilot] Starting... Python {sys.version}", flush=True)
+print(f"[oncall-copilot] AZURE_AI_PROJECT_ENDPOINT={_presence('AZURE_AI_PROJECT_ENDPOINT')}", flush=True)
+print(f"[oncall-copilot] AZURE_MODEL_PROJECT_ENDPOINT={_presence('AZURE_MODEL_PROJECT_ENDPOINT')}", flush=True)
+print(f"[oncall-copilot] AZURE_OPENAI_CHAT_DEPLOYMENT_NAME={_presence('AZURE_OPENAI_CHAT_DEPLOYMENT_NAME')}", flush=True)
+
 _credential = DefaultAzureCredential()
-_token_provider = get_bearer_token_provider(
-    _credential, "https://cognitiveservices.azure.com/.default"
-)
 
 
-def create_workflow_builder():
-    """Create 4 specialist agents and wire them into a ConcurrentBuilder."""
+def create_workflow():
+    """Create 4 specialist agents and wire them into a concurrent workflow."""
 
-    # SDK reads AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_CHAT_DEPLOYMENT_NAME from env vars
-    triage = AzureOpenAIChatClient(ad_token_provider=_token_provider).create_agent(
+    project_endpoint = os.environ.get("AZURE_MODEL_PROJECT_ENDPOINT") or os.environ["AZURE_AI_PROJECT_ENDPOINT"]
+    model = os.environ.get("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "model-router")
+    chat_client = FoundryChatClient(
+        project_endpoint=project_endpoint,
+        model=model,
+        credential=_credential,
+    )
+
+    triage = Agent(
+        client=chat_client,
         instructions=TRIAGE_INSTRUCTIONS,
         name="triage-agent",
     )
-    summary = AzureOpenAIChatClient(ad_token_provider=_token_provider).create_agent(
+    summary = Agent(
+        client=chat_client,
         instructions=SUMMARY_INSTRUCTIONS,
         name="summary-agent",
     )
-    comms = AzureOpenAIChatClient(ad_token_provider=_token_provider).create_agent(
+    comms = Agent(
+        client=chat_client,
         instructions=COMMS_INSTRUCTIONS,
         name="comms-agent",
     )
-    pir = AzureOpenAIChatClient(ad_token_provider=_token_provider).create_agent(
+    pir = Agent(
+        client=chat_client,
         instructions=PIR_INSTRUCTIONS,
         name="pir-agent",
     )
 
-    workflow_builder = ConcurrentBuilder().participants([triage, summary, comms, pir])
-    return workflow_builder
+    return ConcurrentBuilder(
+        participants=[triage, summary, comms, pir],
+        intermediate_outputs=False,
+    ).build()
 
 
 def main():
     print("[oncall-copilot] Building workflow...", flush=True)
-    builder = create_workflow_builder()
+    workflow_agent = create_workflow().as_agent(
+        name="oncall-copilot",
+        description="Runs triage, summary, comms, and PIR agents for incident response.",
+    )
     print("[oncall-copilot] Starting server on port 8088...", flush=True)
-    from_agent_framework(builder.build).run()
+    ResponsesHostServer(workflow_agent).run(port=8088)
 
 
 if __name__ == "__main__":
@@ -72,5 +86,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"[oncall-copilot] FATAL: {e}", flush=True)
         import traceback
+
         traceback.print_exc()
         sys.exit(1)

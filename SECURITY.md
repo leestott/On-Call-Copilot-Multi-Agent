@@ -13,7 +13,7 @@ This project is a **sample / reference implementation** demonstrating Microsoft 
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 
-To report a security issue, use the GitHub Security Advisory ["Report a Vulnerability"](../../security/advisories/new) tab, or send an email to [secure@microsoft.com](mailto:secure@microsoft.com).
+To report a security issue, use the repository's GitHub Security Advisory "Report a Vulnerability" tab, or send an email to [secure@microsoft.com](mailto:secure@microsoft.com).
 
 You should receive a response within 72 hours. If for some reason you do not, please follow up via email to ensure we received your original message.
 

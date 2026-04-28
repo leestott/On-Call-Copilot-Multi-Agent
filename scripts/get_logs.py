@@ -18,10 +18,16 @@ import requests
 
 
 def get_token() -> str:
+    command = [
+        'az', 'account', 'get-access-token', '--resource', 'https://ai.azure.com',
+        '--query', 'accessToken', '-o', 'tsv',
+    ]
+    tenant_id = os.environ.get('AZURE_TENANT_ID')
+    if tenant_id:
+        command.extend(['--tenant', tenant_id])
     result = subprocess.run(
-        ['az', 'account', 'get-access-token', '--resource', 'https://ai.azure.com',
-         '--query', 'accessToken', '-o', 'tsv'],
-        capture_output=True, text=True, shell=True,
+        command,
+        capture_output=True, text=True, timeout=60,
     )
     if result.returncode != 0:
         print(f"ERROR: az login required: {result.stderr.strip()}")

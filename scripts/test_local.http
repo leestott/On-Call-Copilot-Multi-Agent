@@ -1,6 +1,6 @@
 ### On-Call Copilot – Local test requests
 ### Use with VS Code REST Client extension or any HTTP client.
-### Start the server first:  python -m app.main
+### Start the server first:  python main.py
 
 ### ──────────────────────────────────────────────
 ### Demo 1: Simple alert – quick triage
@@ -8,7 +8,14 @@
 POST http://localhost:8088/responses HTTP/1.1
 Content-Type: application/json
 
-< ./demos/demo_1_simple_alert.json
+{
+	"input": [
+		{
+			"role": "user",
+			"content": "Paste the contents of scripts/demos/demo_1_simple_alert.json here as a JSON string."
+		}
+	]
+}
 
 ### ──────────────────────────────────────────────
 ### Demo 2: Multi-signal incident (logs + metrics)
@@ -16,7 +23,14 @@ Content-Type: application/json
 POST http://localhost:8088/responses HTTP/1.1
 Content-Type: application/json
 
-< ./demos/demo_2_multi_signal.json
+{
+	"input": [
+		{
+			"role": "user",
+			"content": "Paste the contents of scripts/demos/demo_2_multi_signal.json here as a JSON string."
+		}
+	]
+}
 
 ### ──────────────────────────────────────────────
 ### Demo 3: Post-incident report synthesis
@@ -24,9 +38,16 @@ Content-Type: application/json
 POST http://localhost:8088/responses HTTP/1.1
 Content-Type: application/json
 
-< ./demos/demo_3_post_incident.json
+{
+	"input": [
+		{
+			"role": "user",
+			"content": "Paste the contents of scripts/demos/demo_3_post_incident.json here as a JSON string."
+		}
+	]
+}
 
 ### ──────────────────────────────────────────────
-### Health check
+### Readiness check
 ### ──────────────────────────────────────────────
-GET http://localhost:8088/health HTTP/1.1
+GET http://localhost:8088/readiness HTTP/1.1

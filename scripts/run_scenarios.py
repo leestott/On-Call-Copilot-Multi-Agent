@@ -23,6 +23,7 @@ import os
 import subprocess
 import sys
 import time
+import urllib.parse
 from pathlib import Path
 
 import requests
@@ -42,10 +43,16 @@ EXPECTED_KEYS = {
 
 
 def get_token() -> str:
+    command = [
+        "az", "account", "get-access-token", "--resource", "https://ai.azure.com",
+        "--query", "accessToken", "-o", "tsv",
+    ]
+    tenant_id = os.environ.get("AZURE_TENANT_ID")
+    if tenant_id:
+        command.extend(["--tenant", tenant_id])
     result = subprocess.run(
-        ["az", "account", "get-access-token", "--resource", "https://ai.azure.com",
-         "--query", "accessToken", "-o", "tsv"],
-        capture_output=True, text=True, shell=True,
+        command,
+        capture_output=True, text=True, timeout=60,
     )
     if result.returncode != 0:
         print(f"ERROR: az login required: {result.stderr.strip()}")
@@ -115,19 +122,21 @@ def run_scenario(
     content = json.dumps(payload)
 
     token = get_token()
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-    agent_spec: dict = {"type": "agent_reference", "name": agent_name}
-    if agent_version:
-        agent_spec["version"] = agent_version
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "x-ms-protocol-version": "1.0.0",
+        "x-ms-agent-protocol-version": "1.0.0",
+    }
     body = {
         "input": [{"role": "user", "content": content}],
-        "agent": agent_spec,
     }
+    agent_path = urllib.parse.quote(agent_name, safe="")
 
     t0 = time.time()
     try:
         r = requests.post(
-            f"{endpoint}/openai/responses?api-version=2025-05-15-preview",
+            f"{endpoint}/agents/{agent_path}/endpoint/protocols/openai/responses?api-version=2025-11-15-preview",
             headers=headers, json=body, timeout=180,
         )
         elapsed = time.time() - t0

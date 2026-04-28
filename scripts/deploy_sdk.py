@@ -1,10 +1,10 @@
 """
-deploy_sdk.py – Deploy the On-Call Copilot as a Foundry Hosted Agent using the Python SDK.
+deploy_sdk.py - Deploy the On-Call Copilot as a Foundry Hosted Agent using the Python SDK.
 
 Ref: https://learn.microsoft.com/azure/ai-foundry/agents/how-to/deploy-hosted-agent
 
 Prerequisites:
-  1. azure-ai-projects >= 2.0.0b3
+    1. azure-ai-projects >= 2.1.0
   2. Container image pushed to Azure Container Registry
   3. Project managed identity has Container Registry Repository Reader on ACR
   4. Account-level capability host with enablePublicHostingEnvironment=true
@@ -24,20 +24,26 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from pathlib import Path
 
 from azure.ai.projects import AIProjectClient
 from azure.ai.projects.models import (
     AgentProtocol,
-    ImageBasedHostedAgentDefinition,
+    ContainerConfiguration,
+    HostedAgentDefinition,
     ProtocolVersionRecord,
 )
-from azure.identity import DefaultAzureCredential
+from azure.identity import AzureCliCredential
+from dotenv import load_dotenv
 
 AGENT_NAME = "oncall-copilot"
+ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(ROOT / ".env", override=True)
 
 
 def get_config() -> dict:
     endpoint = os.environ.get("AZURE_AI_PROJECT_ENDPOINT", "")
+    model_project_endpoint = os.environ.get("AZURE_MODEL_PROJECT_ENDPOINT", endpoint)
     openai_endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT", "")
     image = os.environ.get("ACR_IMAGE", "")
     model = os.environ.get("MODEL_ROUTER_DEPLOYMENT", "model-router")
@@ -52,14 +58,21 @@ def get_config() -> dict:
         print("ERROR: AZURE_OPENAI_ENDPOINT env var is required.")
         sys.exit(1)
 
-    return {"endpoint": endpoint, "openai_endpoint": openai_endpoint, "image": image, "model": model}
+    return {
+        "endpoint": endpoint,
+        "model_project_endpoint": model_project_endpoint,
+        "openai_endpoint": openai_endpoint,
+        "image": image,
+        "model": model,
+    }
 
 
 def deploy(cfg: dict) -> None:
     """Create a new hosted agent version using the Python SDK."""
     client = AIProjectClient(
         endpoint=cfg["endpoint"],
-        credential=DefaultAzureCredential(),
+        credential=AzureCliCredential(),
+        allow_preview=True,
     )
 
     print(f"Creating hosted agent version: {AGENT_NAME}")
@@ -68,18 +81,19 @@ def deploy(cfg: dict) -> None:
     print(f"  Model:    {cfg['model']}")
     print()
 
-    definition = ImageBasedHostedAgentDefinition(
-        container_protocol_versions=[
+    definition = HostedAgentDefinition(
+        protocol_versions=[
             ProtocolVersionRecord(
                 protocol=AgentProtocol.RESPONSES,
-                version="v1",
+                version="1.0.0",
             )
         ],
         cpu="1",
         memory="2Gi",
-        image=cfg["image"],
+        container_configuration=ContainerConfiguration(image=cfg["image"]),
         environment_variables={
             "AZURE_AI_PROJECT_ENDPOINT": cfg["endpoint"],
+            "AZURE_MODEL_PROJECT_ENDPOINT": cfg["model_project_endpoint"],
             "AZURE_OPENAI_ENDPOINT": cfg["openai_endpoint"],
             "AZURE_OPENAI_CHAT_DEPLOYMENT_NAME": cfg["model"],
             "MODEL_ROUTER_DEPLOYMENT": cfg["model"],
@@ -87,13 +101,14 @@ def deploy(cfg: dict) -> None:
         },
     )
 
-    agent = client.agents.create(
-        name=AGENT_NAME,
+    agent = client.agents.create_version(
+        agent_name=AGENT_NAME,
         definition=definition,
+        description="On-Call Copilot multi-agent incident response workflow.",
     )
 
     print(f"Agent deployed successfully!")
-    print(f"  Name:    {agent.name}")
+    print(f"  Name:    {AGENT_NAME}")
     print(f"  ID:      {agent.id}")
     print()
     print("Verify with:")
@@ -107,7 +122,8 @@ def delete(cfg: dict) -> None:
     """Delete the latest hosted agent version."""
     client = AIProjectClient(
         endpoint=cfg["endpoint"],
-        credential=DefaultAzureCredential(),
+        credential=AzureCliCredential(),
+        allow_preview=True,
     )
 
     # List and delete the latest version
