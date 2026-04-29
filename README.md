@@ -96,18 +96,50 @@ az login
 > az account set --subscription "<your-subscription-name-or-id>"
 > ```
 
-### 5. Run the agent server
+### 5. One-command startup (recommended)
+
+The startup script handles venv creation, dependency installation, Azure login, and launches both the agent server and the browser UI:
 
 ```bash
-python main.py
-# Listening on http://localhost:8088
+# Windows PowerShell
+.\scripts\start.ps1
+
+# Linux / macOS
+bash scripts/start.sh
 ```
 
-### 6. Run the browser UI (optional)
+This starts:
+- **Agent server** on `http://localhost:8088`
+- **Browser UI** on `http://localhost:7860`
 
-In a **second terminal** (with the venv activated):
+**Startup script options:**
+
+| Flag | PowerShell | Bash | Description |
+|------|------------|------|-------------|
+| Agent server only | `.\scripts\start.ps1 -SkipUI` | `bash scripts/start.sh --skip-ui` | Skip the UI server |
+| Mock mode | `.\scripts\start.ps1 -MockMode` | `bash scripts/start.sh --mock` | No Azure credentials needed |
+| Skip install | `.\scripts\start.ps1 -SkipInstall` | `bash scripts/start.sh --skip-install` | Skip `pip install` step |
+
+> **What the script does:**
+> 1. Checks prerequisites (Python, Azure CLI)
+> 2. Creates and activates a `.venv` virtual environment
+> 3. Installs dependencies from `requirements.txt`
+> 4. Creates `.env` from `.env.example` if missing
+> 5. Checks Azure login (reads `AZURE_TENANT_ID` from `.env` if set)
+> 6. Starts the agent server and UI server together
+>
+> Press **Ctrl+C** to stop both servers.
+
+### 6. Run servers manually (alternative)
+
+If you prefer to start the servers separately:
 
 ```bash
+# Terminal 1 — agent server
+python main.py
+# Listening on http://localhost:8088
+
+# Terminal 2 — browser UI (with venv activated)
 python ui/server.py
 # Opens at http://localhost:7860
 ```
