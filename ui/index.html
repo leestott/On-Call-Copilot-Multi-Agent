@@ -26,6 +26,41 @@
   --r-summary: var(--accent);
   --r-comms: var(--green);
   --r-pir:   var(--purple);
+  --json-text: #a5d6ff;
+  --slack-bg: #1a1d21;
+  --slack-border: #36393f;
+  --slack-text: #dcddde;
+  --slack-muted: #72767d;
+  --slack-strong: #ffffff;
+  --slack-channel: #7289da;
+  --runbook-sep: rgba(48,54,61,0.5);
+}
+
+/* Light theme */
+[data-theme="light"] {
+  --bg:      #ffffff;
+  --bg2:     #f6f8fa;
+  --bg3:     #eaeef2;
+  --bg4:     #d0d7de;
+  --border:  #d0d7de;
+  --text:    #1f2328;
+  --text2:   #59636e;
+  --text3:   #818b98;
+  --accent:  #0969da;
+  --green:   #1a7f37;
+  --red:     #cf222e;
+  --yellow:  #9a6700;
+  --purple:  #8250df;
+  --orange:  #bc4c00;
+  --teal:    #1f883d;
+  --json-text: #0550ae;
+  --slack-bg: #f8f9fa;
+  --slack-border: #d1d5db;
+  --slack-text: #1d1f23;
+  --slack-muted: #57606a;
+  --slack-strong: #000000;
+  --slack-channel: #1264a3;
+  --runbook-sep: rgba(208,215,222,0.6);
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; overflow: hidden; }
@@ -37,6 +72,7 @@ body {
   line-height: 1.5;
   display: flex;
   flex-direction: column;
+  transition: background-color 0.2s, color 0.2s;
 }
 code, pre, .mono { font-family: 'Consolas', 'Cascadia Code', 'Courier New', monospace; }
 a { color: var(--accent); text-decoration: none; }
@@ -233,7 +269,7 @@ select { font-family: inherit; }
 #json-editor {
   flex: 1;
   background: var(--bg);
-  color: #a5d6ff;
+  color: var(--json-text);
   border: none;
   outline: none;
   resize: none;
@@ -478,18 +514,18 @@ select { font-family: inherit; }
 
 /* ── COMMS PANEL ── */
 .slack-card {
-  background: #1a1d21;
-  border: 1px solid #36393f;
+  background: var(--slack-bg);
+  border: 1px solid var(--slack-border);
   border-radius: 10px;
   padding: 14px 16px;
   margin-bottom: 12px;
 }
 .slack-header { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
 .slack-icon { font-size: 16px; }
-.slack-workspace { font-size: 11px; font-weight: 700; color: #72767d; text-transform: uppercase; letter-spacing: 0.5px; }
-.slack-channel { font-size: 12px; color: #7289da; margin-left: auto; font-weight: 600; }
-.slack-body { font-size: 13px; color: #dcddde; line-height: 1.6; word-break: break-word; }
-.slack-body strong { color: white; }
+.slack-workspace { font-size: 11px; font-weight: 700; color: var(--slack-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.slack-channel { font-size: 12px; color: var(--slack-channel); margin-left: auto; font-weight: 600; }
+.slack-body { font-size: 13px; color: var(--slack-text); line-height: 1.6; word-break: break-word; }
+.slack-body strong { color: var(--slack-strong); }
 
 .stakeholder-card {
   padding: 14px 16px;
@@ -572,7 +608,7 @@ select { font-family: inherit; }
 .info-why { font-size: 11px; color: var(--text2); line-height: 1.5; }
 .runbook-item {
   font-size: 12px; padding: 5px 0;
-  border-bottom: 1px solid rgba(48,54,61,0.5); color: var(--text);
+  border-bottom: 1px solid var(--runbook-sep); color: var(--text);
 }
 .runbook-item:last-child { border-bottom: none; }
 .runbook-gap { color: var(--yellow); }
@@ -672,6 +708,7 @@ select { font-family: inherit; }
     <span id="agent-label">oncall-copilot:latest</span>
   </div>
   <div id="cfg-pill" class="cfg-pill unconfigured" title="Click to configure">⚠ endpoint not set</div>
+  <button id="theme-toggle" class="topbar-action" onclick="toggleTheme()" title="Toggle light/dark theme" aria-label="Toggle theme">🌙 Dark</button>
   <button class="topbar-action" onclick="openConfig()">⚙ Configure</button>
 </header>
 
@@ -837,6 +874,28 @@ const state = {
   result: null,
   config: { endpoint: '', agentName: 'oncall-copilot', agentVersion: '' },
 };
+
+// ═══════════════════════════════════════  THEME  ═══════════════════════════════════
+function applyTheme(theme) {
+  const t = theme === 'light' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = t === 'light' ? '☀ Light' : '🌙 Dark';
+}
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  const next = current === 'light' ? 'dark' : 'light';
+  try { localStorage.setItem('oncall-copilot-theme', next); } catch(_) {}
+  applyTheme(next);
+}
+(function initTheme() {
+  let saved = null;
+  try { saved = localStorage.getItem('oncall-copilot-theme'); } catch(_) {}
+  if (!saved && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+    saved = 'light';
+  }
+  applyTheme(saved || 'dark');
+})();
 
 // ═══════════════════════════════════════  INIT  ════════════════════════════════════
 async function init() {

@@ -4,7 +4,7 @@ name: oncall-copilot
 metadata:
     template: azd-init@1.23.3
 services:
-    oncall-copilot:
+    on-call-copilot-multi-agent:
         project: .
         host: azure.ai.agent
         language: docker
@@ -15,3 +15,13 @@ services:
                 resources:
                     cpu: "1"
                     memory: 2Gi
+            deployments:
+                - model:
+                    format: OpenAI
+                    name: model-router
+                    version: "2025-11-18"
+                  name: model-router
+                  sku:
+                    capacity: 156
+                    name: GlobalStandard
+            startupCommand: python main.py
