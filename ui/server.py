@@ -92,7 +92,7 @@ def _invoke_agent(content: str) -> dict:
             "AZURE_AI_PROJECT_ENDPOINT env var is not set.\n"
             "Set it to: https://<account>.services.ai.azure.com/api/projects/<project>"
         )
-    agent_name    = os.environ.get("AGENT_NAME", "oncall-copilot")
+    agent_name    = os.environ.get("AGENT_NAME", "on-call-copilot-multi-agent")
     agent_version = os.environ.get("AGENT_VERSION", "")
     agent_path = urllib.parse.quote(agent_name, safe="")
 
@@ -118,7 +118,7 @@ def _invoke_agent(content: str) -> dict:
 
     t0 = time.time()
     r = requests.post(
-        f"{endpoint}/agents/{agent_path}/endpoint/protocols/openai/responses?api-version=2025-11-15-preview",
+        f"{endpoint}/agents/{agent_path}/endpoint/protocols/openai/responses?api-version=v1",
         headers=headers, json=body, timeout=180,
     )
     elapsed = round(time.time() - t0, 1)
@@ -209,7 +209,7 @@ class Handler(BaseHTTPRequestHandler):
             endpoint = os.environ.get("AZURE_AI_PROJECT_ENDPOINT", "")
             self._send_json({
                 "endpoint": endpoint,
-                "agent_name": os.environ.get("AGENT_NAME", "oncall-copilot"),
+                "agent_name": os.environ.get("AGENT_NAME", "on-call-copilot-multi-agent"),
                 "agent_version": os.environ.get("AGENT_VERSION", "latest"),
                 "configured": bool(endpoint),
             })
@@ -276,7 +276,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     endpoint = os.environ.get("AZURE_AI_PROJECT_ENDPOINT", "")
-    agent    = os.environ.get("AGENT_NAME", "oncall-copilot")
+    agent    = os.environ.get("AGENT_NAME", "on-call-copilot-multi-agent")
     version  = os.environ.get("AGENT_VERSION", "") or "latest"
 
     print("=" * 60)

@@ -66,7 +66,6 @@ def create_workflow():
 
     return ConcurrentBuilder(
         participants=[triage, summary, comms, pir],
-        intermediate_outputs=False,
     ).build()
 
 

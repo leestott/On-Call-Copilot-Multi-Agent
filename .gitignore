@@ -51,6 +51,8 @@ azure-dev*.json
 .checkpoints/
 .agents/
 .foundry/
+.agent_configs/
+eval.yaml
 agent_status*.json
 agent_status*.txt
 agent_versions*.json
@@ -78,6 +80,7 @@ temp/
 
 # IDE and OS
 .vscode/settings.json
+.vscode/tasks.json
 .vscode/*.code-workspace
 .idea/
 *.DS_Store

@@ -1,15 +1,14 @@
 # On-Call Copilot – Microsoft Agent Framework hosted-agent stack
 # Ref: https://github.com/microsoft/agent-framework
-agent-framework==1.2.0
-agent-framework-foundry==1.2.0
-agent-framework-foundry-hosting==1.0.0a260424
-agent-framework-orchestrations==1.0.0b260424
-agent-dev-cli==0.0.1b260427
-azure-ai-projects
-azure-identity
-debugpy
-fastapi
-jsonschema
-python-dotenv
-requests
-uvicorn
+agent-framework-core==1.16.0
+agent-framework-foundry==1.11.0
+agent-framework-foundry-hosting==1.0.0b260827
+agent-framework-orchestrations==1.1.1
+azure-ai-projects==2.3.0
+azure-identity==1.25.3
+debugpy==1.8.21
+fastapi==0.141.1
+jsonschema==4.26.0
+python-dotenv==1.2.3
+requests==2.34.2
+uvicorn==0.52.4

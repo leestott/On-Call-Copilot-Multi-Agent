@@ -8,20 +8,31 @@ services:
         project: .
         host: azure.ai.agent
         language: docker
+        kind: hosted
+        name: on-call-copilot-multi-agent
+        protocols:
+            - protocol: responses
+              version: 1.0.0
+        env:
+            AZURE_AI_MODEL_DEPLOYMENT_NAME: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+            AZURE_AI_PROJECT_ENDPOINT: ${AZURE_AI_PROJECT_ENDPOINT}
+            AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+            MODEL_ROUTER_DEPLOYMENT: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+            AZURE_TENANT_ID: ${AZURE_TENANT_ID}
+            LOG_LEVEL: INFO
         docker:
             remoteBuild: true
-        config:
-            container:
-                resources:
-                    cpu: "1"
-                    memory: 2Gi
-            deployments:
-                - model:
-                    format: OpenAI
-                    name: model-router
-                    version: "2025-11-18"
-                  name: model-router
-                  sku:
-                    capacity: 156
-                    name: GlobalStandard
-            startupCommand: python main.py
+        container:
+            resources:
+                cpu: "1"
+                memory: 2Gi
+        deployments:
+            - model:
+                format: OpenAI
+                name: model-router
+                version: "2025-11-18"
+              name: model-router
+              sku:
+                capacity: 156
+                name: GlobalStandard
+        startupCommand: python main.py
