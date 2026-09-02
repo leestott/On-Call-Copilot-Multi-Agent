@@ -112,8 +112,7 @@ on-call-copilot/
 ├── infra/
 │   └── main.bicep       # Azure infrastructure (Foundry project, container app)
 ├── Dockerfile
-├── agent.yaml           # Declarative agent definition
-└── azure.yaml           # azd configuration
+└── azure.yaml           # azd config + inline hosted-agent definition
 ```
 
 ---

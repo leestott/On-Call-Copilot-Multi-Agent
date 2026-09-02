@@ -7,7 +7,7 @@ Required environment variables:
     AZURE_AI_PROJECT_ENDPOINT  – e.g. https://<account>.services.ai.azure.com/api/projects/<project>
 
 Optional:
-    AGENT_NAME     – defaults to oncall-copilot
+    AGENT_NAME     – defaults to on-call-copilot-multi-agent
     AGENT_VERSION  – defaults to latest
 """
 import os
@@ -41,7 +41,7 @@ if not project_endpoint:
     print('  e.g. https://<account>.services.ai.azure.com/api/projects/<project>')
     sys.exit(1)
 
-agent = os.environ.get('AGENT_NAME', 'oncall-copilot')
+agent = os.environ.get('AGENT_NAME', 'on-call-copilot-multi-agent')
 version = os.environ.get('AGENT_VERSION', 'latest')
 
 token = get_token()

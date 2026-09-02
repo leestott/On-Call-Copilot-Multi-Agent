@@ -7,7 +7,7 @@ Required environment variables:
     AZURE_AI_PROJECT_ENDPOINT  -- e.g. https://<account>.services.ai.azure.com/api/projects/<project>
 
 Optional:
-    AGENT_NAME     -- defaults to oncall-copilot
+    AGENT_NAME     -- defaults to on-call-copilot-multi-agent
     AGENT_VERSION  -- defaults to latest
 
 Ref: https://learn.microsoft.com/azure/ai-foundry/agents/how-to/manage-hosted-agent
@@ -52,7 +52,7 @@ def get_config() -> tuple[str, str, str]:
         print("ERROR: AZURE_AI_PROJECT_ENDPOINT env var is required.")
         print("  e.g. https://<account>.services.ai.azure.com/api/projects/<project>")
         sys.exit(1)
-    agent_name = os.environ.get("AGENT_NAME", "oncall-copilot")
+    agent_name = os.environ.get("AGENT_NAME", "on-call-copilot-multi-agent")
     agent_version = os.environ.get("AGENT_VERSION", "latest")
     return endpoint, agent_name, agent_version
 

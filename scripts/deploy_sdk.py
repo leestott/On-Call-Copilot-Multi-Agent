@@ -36,7 +36,7 @@ from azure.ai.projects.models import (
 from azure.identity import AzureCliCredential
 from dotenv import load_dotenv
 
-AGENT_NAME = "oncall-copilot"
+AGENT_NAME = "on-call-copilot-multi-agent"
 ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT / ".env", override=True)
 

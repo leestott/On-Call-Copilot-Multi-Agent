@@ -489,7 +489,7 @@ python scripts/deploy_sdk.py --delete
 | `AZURE_MODEL_PROJECT_ENDPOINT` | Yes | Foundry project endpoint that contains the Model Router deployment |
 | `AZURE_TENANT_ID` | Recommended | Tenant used by local CLI helper scripts |
 | `AZURE_SUBSCRIPTION_ID` | Recommended | Subscription used for deployment metadata |
-| `AGENT_NAME` | No | Agent name for SDK scripts (default: `oncall-copilot`) |
+| `AGENT_NAME` | No | Agent name for SDK scripts (default: `on-call-copilot-multi-agent`) |
 | `AGENT_VERSION` | No | Agent version for SDK scripts (default: `latest`) |
 | `ACR_IMAGE` | No | ACR image URI for `deploy_sdk.py` |
 | `MOCK_MODE` | No | Set to `true` for mock validation without Azure |
@@ -502,8 +502,7 @@ python scripts/deploy_sdk.py --delete
 ```
 On-Call-Copilot-Multi-Agent/
 ├── main.py                  # Agent Framework entrypoint (hosted agent)
-├── agent.yaml               # Hosted Agent definition
-├── azure.yaml               # azd configuration
+├── azure.yaml               # azd config + inline hosted-agent definition
 ├── Dockerfile               # linux/amd64 container for Foundry
 ├── requirements.txt
 ├── .env.example             # Environment variable template → copy to .env
